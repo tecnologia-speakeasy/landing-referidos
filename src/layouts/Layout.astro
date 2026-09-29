@@ -1,23 +1,49 @@
-<!doctype html>
-<html lang="en">
-	<head>
-		<meta charset="utf-8" />
-		<meta name="viewport" content="width=device-width" />
-		<link rel="icon" type="image/svg+xml" href="/favicon.svg" />
-		<link rel="icon" href="/favicon.ico" />
-		<meta name="generator" content={Astro.generator} />
-		<title>Astro Basics</title>
-	</head>
-	<body>
-		<slot />
-	</body>
-</html>
+---
+import '../styles/global.css';
 
-<style>
-	html,
-	body {
-		margin: 0;
-		width: 100%;
-		height: 100%;
-	}
-</style>
+interface Props {
+  titulo: string;
+  descripcion?: string;
+  /** Familia que usa la página; solo se precarga la que de verdad se pinta. */
+  fuente: 'dm-sans' | 'inter';
+  /** Clases del <body>: fondo y tipografía de cada página. */
+  clase: string;
+  /** Color de la barra del navegador en móvil. */
+  colorTema?: string;
+}
+
+const {
+  titulo,
+  descripcion = 'Refiere a tus amigos y familiares para que aprendan inglés con Speak Easy.',
+  fuente,
+  clase,
+  colorTema = '#170b2b',
+} = Astro.props;
+
+// El subconjunto latin cubre el español; latin-ext solo entra si aparece algún
+// carácter raro, así que no hace falta precargarlo.
+const fuentePrincipal =
+  fuente === 'dm-sans' ? '/fuentes/dm-sans-latin.woff2' : '/fuentes/inter-latin.woff2';
+---
+
+<!doctype html>
+<html lang="es" class="h-full">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="description" content={descripcion} />
+    <meta name="robots" content="noindex" />
+    <meta name="theme-color" content={colorTema} />
+
+    <link rel="icon" type="image/png" sizes="32x32" href="/FAVICON.png" />
+    <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+
+    <link rel="preload" as="font" type="font/woff2" href={fuentePrincipal} crossorigin />
+    <slot name="head" />
+
+    <title>{titulo}</title>
+  </head>
+  <body class:list={['min-h-dvh antialiased', clase]}>
+    <slot />
+  </body>
+</html>

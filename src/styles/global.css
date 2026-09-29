@@ -1,0 +1,396 @@
+@import 'tailwindcss';
+
+/* -----------------------------------------------------------------------------
+ * Fuentes autoalojadas (subconjuntos latin y latin-ext de Google Fonts).
+ * Van en /public/fuentes para no depender de fonts.gstatic.com: ahorra dos
+ * conexiones externas en la primera carga. Ambas son variables, así que un solo
+ * archivo por familia cubre todos los pesos que usa el diseño.
+ * ---------------------------------------------------------------------------*/
+@font-face {
+  font-family: 'DM Sans';
+  font-style: normal;
+  font-weight: 100 1000;
+  font-display: swap;
+  src: url('/fuentes/dm-sans-latin.woff2') format('woff2');
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304,
+    U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+
+@font-face {
+  font-family: 'DM Sans';
+  font-style: normal;
+  font-weight: 100 1000;
+  font-display: swap;
+  src: url('/fuentes/dm-sans-latin-ext.woff2') format('woff2');
+  unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308,
+    U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113,
+    U+2C60-2C7F, U+A720-A7FF;
+}
+
+@font-face {
+  font-family: 'Inter';
+  font-style: normal;
+  font-weight: 100 900;
+  font-display: swap;
+  src: url('/fuentes/inter-latin.woff2') format('woff2');
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304,
+    U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+
+@font-face {
+  font-family: 'Inter';
+  font-style: normal;
+  font-weight: 100 900;
+  font-display: swap;
+  src: url('/fuentes/inter-latin-ext.woff2') format('woff2');
+  unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308,
+    U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113,
+    U+2C60-2C7F, U+A720-A7FF;
+}
+
+/* -----------------------------------------------------------------------------
+ * Tokens del diseño (Figma · REFERIDOS-LANDING).
+ * ---------------------------------------------------------------------------*/
+@theme {
+  --font-dm: 'DM Sans', ui-sans-serif, system-ui, sans-serif;
+  --font-inter: 'Inter', ui-sans-serif, system-ui, sans-serif;
+
+  --color-rosa: #ff327d;
+  --color-morado-900: #170b2b;
+  --color-morado-800: #29134b;
+  --color-morado-700: #412769;
+  --color-lila: #ece6f4;
+  --color-marcador: #9e9e9e;
+}
+
+/* =============================================================================
+ * FORMULARIO DE ENTRADA (/)
+ * Copia de la página de acceso de landing-auth-zoom: mismo fondo y misma
+ * tarjeta de cristal.
+ * ===========================================================================*/
+
+/*
+ * El color plano de debajo es el mismo morado del original, así que si la
+ * imagen todavía no ha cargado no se ve ningún destello blanco.
+ */
+.pagina-formulario {
+  background-color: #170b2b;
+  background-image: url('/img/fondo-formulario-movil.webp');
+  background-position: center;
+  background-size: cover;
+  background-repeat: no-repeat;
+  background-attachment: scroll;
+}
+
+@media (min-width: 640px) {
+  .pagina-formulario {
+    background-image: url('/img/fondo-formulario-desktop.webp');
+  }
+}
+
+/*
+ * Tarjeta del formulario. Son cuatro capas superpuestas del original:
+ *   1. base       — tres degradados planos (velo morado + velo blanco)
+ *   2. ::before   — mancha oscura difusa arriba a la izquierda (multiply)
+ *   3. ::after    — resplandor rosa que sube desde abajo (lighten)
+ *   4. backdrop   — desenfoque de lo que queda detrás
+ */
+.tarjeta-login {
+  position: relative;
+  isolation: isolate;
+  border-radius: 20px;
+  /*
+   * Respaldo plano para navegadores sin máscaras compuestas: un anillo metido
+   * hacia dentro del canto, con la misma geometría que el bisel de cristal.
+   * Donde sí hay máscaras (prácticamente todos), lo sustituye `.filo-tarjeta`.
+   */
+  box-shadow: inset 0 0 0 4px rgba(255, 255, 255, 0.06);
+  background-image:
+    linear-gradient(209.55deg, rgba(178, 168, 204, 0.202) 1.21%, rgba(37, 30, 50, 0) 33.58%),
+    linear-gradient(90deg, rgba(34, 16, 61, 0.2), rgba(34, 16, 61, 0.2)),
+    linear-gradient(90deg, rgba(255, 255, 255, 0.11), rgba(255, 255, 255, 0.11));
+  backdrop-filter: blur(42.85px);
+  -webkit-backdrop-filter: blur(42.85px);
+}
+
+/*
+ * Filo de la tarjeta: un bisel de cristal de 4px, no una línea pintada. Canto
+ * exterior nítido, cuerpo casi transparente y destellos en diagonal; encima, un
+ * degradado que apenas se distingue arriba y se acumula en lavanda abajo.
+ *
+ * El anillo se consigue tapando el centro con una máscara: se pintan dos capas
+ * (una hasta el borde y otra solo hasta la caja de contenido) y se restan.
+ *
+ * A propósito NO lleva `backdrop-filter`: combinarlo con `mask` en el mismo
+ * elemento falla en Safari (el desenfoque se sale del anillo).
+ */
+.filo-tarjeta {
+  display: none;
+}
+
+@supports (mask-composite: exclude) or (-webkit-mask-composite: xor) {
+  /* El anillo lo pinta `.filo-tarjeta`; el respaldo plano ya no hace falta. */
+  .tarjeta-login {
+    box-shadow: none;
+  }
+
+  .filo-tarjeta {
+    display: block;
+    position: absolute;
+    inset: 0;
+    padding: 4px;
+    border-radius: 20px;
+    pointer-events: none;
+    background-image:
+      linear-gradient(
+        118deg,
+        rgba(255, 255, 255, 0) 4%,
+        rgba(255, 255, 255, 0.11) 19%,
+        rgba(255, 255, 255, 0) 34%,
+        rgba(255, 255, 255, 0) 62%,
+        rgba(255, 255, 255, 0.08) 79%,
+        rgba(255, 255, 255, 0) 93%
+      ),
+      linear-gradient(
+        to bottom,
+        rgba(255, 255, 255, 0.02) 0%,
+        rgba(255, 255, 255, 0.05) 45%,
+        rgba(255, 233, 243, 0.11) 78%,
+        rgba(255, 214, 232, 0.18) 100%
+      );
+    box-shadow:
+      inset 0 0 0 1px rgba(255, 255, 255, 0.07),
+      inset 0 0 6px 0 rgba(255, 255, 255, 0.04);
+    /* El orden importa: la forma abreviada reinicia `mask-composite`. */
+    -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+    -webkit-mask-composite: xor;
+    mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+    mask-composite: exclude;
+  }
+}
+
+.tarjeta-login::before,
+.tarjeta-login::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: 20px;
+  pointer-events: none;
+  z-index: -1;
+}
+
+.tarjeta-login::before {
+  mix-blend-mode: multiply;
+  opacity: 0.15;
+  background-image: radial-gradient(
+    56% 34% at 26% 20%,
+    var(--color-morado-900) 0%,
+    rgba(23, 11, 43, 0) 100%
+  );
+}
+
+.tarjeta-login::after {
+  mix-blend-mode: lighten;
+  background-image: linear-gradient(
+    172.58deg,
+    rgba(65, 39, 105, 0) 13.163%,
+    rgba(255, 50, 125, 0.357) 116.54%
+  );
+}
+
+@media (min-width: 640px) {
+  .tarjeta-login::after {
+    background-image: linear-gradient(
+      170.13deg,
+      rgba(65, 39, 105, 0) 13.163%,
+      rgba(255, 50, 125, 0.357) 116.54%
+    );
+  }
+}
+
+/* =============================================================================
+ * LANDING DE REFERIDOS (/referidos)
+ *
+ * Móvil primero; el diseño desktop entra a partir de `lg` (1024px). Entre 640 y
+ * 1023 se usa la composición móvil con el contenido limitado a 560px.
+ * ===========================================================================*/
+
+html {
+  scroll-behavior: smooth;
+}
+
+/*
+ * Bloque superior (hero + frase de confianza). El fondo es el export de diseño
+ * sin la foto: trama, halos morados y el oscurecido de abajo ya van dentro.
+ */
+.bloque-superior {
+  background: #170b2b url('/img/fondo-hero.webp') center top / cover no-repeat;
+}
+
+/* Bloque inferior (formulario + cierre): trama con el halo morado abajo. */
+.bloque-inferior {
+  background: #170b2b url('/img/fondo-referidos.webp') center bottom / cover no-repeat;
+}
+
+/*
+ * Rejilla del bloque superior. En móvil la foto va entre el mensaje y la frase
+ * de confianza; en desktop ocupa la columna derecha a lo alto de las dos.
+ */
+.rejilla-hero {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  grid-template-areas:
+    'mensaje'
+    'foto'
+    'confianza';
+}
+
+@media (min-width: 1024px) {
+  .rejilla-hero {
+    grid-template-columns: minmax(0, 1fr) 460px;
+    column-gap: 64px;
+    grid-template-areas:
+      'mensaje foto'
+      'confianza foto';
+  }
+}
+
+/*
+ * Foto de Felipe. El archivo trae el halo alrededor, así que la imagen es mucho
+ * más grande que la persona y se coloca a mano para que la persona caiga donde
+ * la pone el diseño. Las cifras salen de medir el diseño contra el archivo:
+ * en `felipe.webp` (1365x997) la persona empieza en la fila 472 y el corte de
+ * la foto está en la última fila.
+ *
+ * Móvil (escala 0,838, 1144px): la cabeza queda 6px por debajo del inicio del
+ * hueco de la foto y el fundido la funde con el morado antes de la frase.
+ */
+.foto-felipe {
+  position: absolute;
+  top: -390px;
+  left: 50%;
+  width: 1144px;
+  max-width: none;
+  height: auto;
+  transform: translateX(-50%);
+  pointer-events: none;
+  user-select: none;
+}
+
+/*
+ * Fundido móvil: la foto se disuelve en el morado de fondo por debajo de las
+ * manos. Arranca 174px por debajo del hueco (como en el diseño) y es más alto
+ * que la sección a propósito, para que la cubra hasta el final aunque el texto
+ * de abajo ocupe más líneas.
+ */
+.fundido-foto {
+  position: absolute;
+  top: 174px;
+  left: 50%;
+  width: 100vw;
+  height: 1200px;
+  transform: translateX(-50%);
+  background-image: linear-gradient(to bottom, rgba(23, 11, 43, 0) 26px, #170b2b 197px);
+  pointer-events: none;
+}
+
+/*
+ * Desktop (escala 1,338, 1826px): la cabeza queda 634px por encima del final de
+ * la sección y la foto sobresale 68px por debajo, que recorta la propia
+ * sección. La máscara oscurece la parte baja como el fundido "multiply" del
+ * diseño, pero solo sobre la foto: el fondo ya trae su propio oscurecido.
+ */
+@media (min-width: 1024px) {
+  .foto-felipe {
+    top: auto;
+    bottom: -68px;
+    width: 1826px;
+    -webkit-mask-image: linear-gradient(to bottom, #000 966px, rgba(0, 0, 0, 0.3) 1228px);
+    mask-image: linear-gradient(to bottom, #000 966px, rgba(0, 0, 0, 0.3) 1228px);
+  }
+
+  .fundido-foto {
+    display: none;
+  }
+}
+
+/* Tarjetas de "¿Cómo funciona este regalo?". */
+.tarjeta-beneficio {
+  background-image:
+    linear-gradient(124.15deg, rgba(178, 168, 204, 0.202) 0.76%, rgba(37, 30, 50, 0) 43.062%),
+    linear-gradient(141.55deg, rgba(65, 39, 105, 0.01) 9.079%, rgb(93, 64, 138) 126.5%);
+}
+
+/*
+ * Tarjeta del formulario de referidos: las mismas tres capas de cristal que la
+ * tarjeta de entrada, con los ángulos de este diseño (móvil y desktop).
+ */
+.tarjeta-referidos {
+  position: relative;
+  isolation: isolate;
+  background-image:
+    linear-gradient(229.77deg, rgba(178, 168, 204, 0.202) 1.212%, rgba(37, 30, 50, 0) 33.578%),
+    linear-gradient(90deg, rgba(34, 16, 61, 0.2), rgba(34, 16, 61, 0.2)),
+    linear-gradient(90deg, rgba(255, 255, 255, 0.11), rgba(255, 255, 255, 0.11));
+}
+
+.tarjeta-referidos::before,
+.tarjeta-referidos::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  pointer-events: none;
+  z-index: -1;
+}
+
+.tarjeta-referidos::before {
+  mix-blend-mode: multiply;
+  opacity: 0.15;
+  background-image: radial-gradient(
+    56% 34% at 26% 20%,
+    var(--color-morado-900) 0%,
+    rgba(23, 11, 43, 0) 100%
+  );
+}
+
+.tarjeta-referidos::after {
+  mix-blend-mode: lighten;
+  background-image: linear-gradient(
+    164.8deg,
+    rgba(65, 39, 105, 0) 13.163%,
+    rgba(255, 50, 125, 0.357) 116.54%
+  );
+}
+
+@media (min-width: 1024px) {
+  .tarjeta-referidos {
+    background-image:
+      linear-gradient(191.12deg, rgba(178, 168, 204, 0.202) 1.212%, rgba(37, 30, 50, 0) 33.578%),
+      linear-gradient(90deg, rgba(34, 16, 61, 0.2), rgba(34, 16, 61, 0.2)),
+      linear-gradient(90deg, rgba(255, 255, 255, 0.11), rgba(255, 255, 255, 0.11));
+  }
+
+  .tarjeta-referidos::after {
+    background-image: linear-gradient(
+      177.41deg,
+      rgba(65, 39, 105, 0) 13.163%,
+      rgba(255, 50, 125, 0.357) 116.54%
+    );
+  }
+}
+
+/* Respeta a quien pide menos animación en el sistema. */
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
+
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}

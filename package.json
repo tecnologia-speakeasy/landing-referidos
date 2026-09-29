@@ -9,12 +9,27 @@
     "dev": "astro dev",
     "build": "astro build",
     "preview": "astro preview",
-    "astro": "astro"
+    "astro": "astro",
+    "migrate": "node scripts/migrate.mjs",
+    "optimizar-imagenes": "node scripts/optimizar-imagenes.mjs",
+    "check": "astro check"
   },
   "dependencies": {
-    "astro": "^7.3.5"
+    "@astrojs/vercel": "^11.0.11",
+    "@tailwindcss/vite": "^4.3.3",
+    "astro": "^7.3.5",
+    "dotenv": "^17.4.2",
+    "jose": "^6.2.12",
+    "pg": "^8.23.0",
+    "tailwindcss": "^4.3.3",
+    "zod": "^4.6.5"
   },
   "allowScripts": {
     "esbuild": true
+  },
+  "devDependencies": {
+    "@astrojs/check": "^0.9.10",
+    "@types/pg": "^8.23.1",
+    "typescript": "^6.0.3"
   }
 }

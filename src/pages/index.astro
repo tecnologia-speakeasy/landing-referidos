@@ -1,11 +1,161 @@
 ---
-import Welcome from '../components/Welcome.astro';
 import Layout from '../layouts/Layout.astro';
+import { leerSesion } from '@/lib/session';
 
-// Welcome to Astro! Wondering what to do next? Check out the Astro documentation at https://docs.astro.build
-// Don't want to use any of this? Delete everything in this file, the `assets`, `components`, and `layouts` directories, and start fresh.
+export const prerender = false;
+
+// Si ya dejó sus datos, no tiene sentido pedírselos otra vez.
+if (await leerSesion(Astro.cookies)) {
+  return Astro.redirect('/referidos');
+}
+
+const claseEtiqueta = 'w-full text-[18px] leading-normal text-white';
+const claseCampo =
+  'h-12 w-full rounded-xl bg-white px-4 text-[16px] leading-normal text-black outline-none ' +
+  'placeholder:text-black/[0.31] focus-visible:ring-2 focus-visible:ring-rosa ' +
+  'focus-visible:ring-offset-2 focus-visible:ring-offset-morado-900 ' +
+  'disabled:opacity-70 sm:px-[18px]';
 ---
 
-<Layout>
-	<Welcome />
+<Layout
+  titulo="Referidos | Speak Easy"
+  descripcion="Ingresa tus datos para referir a tus amigos y familiares en Speak Easy."
+  fuente="dm-sans"
+  clase="pagina-formulario font-dm"
+>
+  <!-- `my-auto` en la tarjeta en vez de `items-center`: si la pantalla es más
+       baja que el formulario, así se puede desplazar hacia arriba. -->
+  <main class="flex min-h-dvh justify-center px-6 py-10">
+    <div class="tarjeta-login my-auto flex w-full max-w-[320px] flex-col gap-7 px-5 py-7 sm:max-w-[462px] sm:gap-11 sm:px-9 sm:pt-12 sm:pb-9">
+      <span class="filo-tarjeta" aria-hidden="true"></span>
+
+      <header class="flex flex-col gap-4 text-center sm:gap-5">
+        <p class="text-[20px] leading-normal text-white">¡Bienvenidos!</p>
+
+        <div class="flex flex-col gap-0">
+          <h1 class="text-[45px] leading-normal font-extrabold tracking-[-0.9px] text-rosa">
+            Speak Easy
+          </h1>
+          <p class="text-[20px] leading-normal text-white">Ingresa tus datos para comenzar</p>
+        </div>
+      </header>
+
+      <!-- Sin validación de formato a propósito: solo se pide que no vayan vacíos. -->
+      <form id="form-entrada" class="flex flex-col gap-6 sm:gap-8">
+        <div class="flex flex-col gap-4">
+          <label for="nombre" class={claseEtiqueta}>Nombre</label>
+          <input
+            id="nombre"
+            name="nombre"
+            type="text"
+            autocomplete="name"
+            maxlength="120"
+            required
+            placeholder="Ej. María García López"
+            aria-describedby="mensaje-error"
+            class={claseCampo}
+          />
+
+          <label for="email" class={claseEtiqueta}>Correo electrónico</label>
+          <input
+            id="email"
+            name="email"
+            type="text"
+            inputmode="email"
+            autocomplete="email"
+            autocapitalize="off"
+            spellcheck="false"
+            maxlength="254"
+            required
+            placeholder="Ej. maria.garcia@email.com"
+            aria-describedby="mensaje-error"
+            class={claseCampo}
+          />
+
+          <p
+            id="mensaje-error"
+            role="alert"
+            aria-live="polite"
+            class="hidden text-[16px] leading-normal text-rosa"
+          >
+          </p>
+        </div>
+
+        <button
+          id="boton-entrar"
+          type="submit"
+          class="flex h-12 w-full cursor-pointer items-center justify-center gap-2 rounded-xl bg-rosa px-6 text-[18px] leading-normal font-medium text-white transition-[opacity,transform] duration-150 ease-out hover:opacity-90 active:scale-[0.97] focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-2 focus-visible:ring-offset-morado-900 focus-visible:outline-none disabled:cursor-not-allowed disabled:opacity-60"
+        >
+          <span id="texto-boton">Ingresar</span>
+          <span
+            id="spinner"
+            aria-hidden="true"
+            class="hidden size-4 animate-spin rounded-full border-2 border-white/40 border-t-white"
+          ></span>
+        </button>
+      </form>
+
+      <div class="flex justify-center pt-2">
+        <img src="/img/logo-speakeasy-tarjeta.webp" alt="Speak Easy" width="61" height="35" />
+      </div>
+    </div>
+  </main>
 </Layout>
+
+<script>
+  const form = document.querySelector<HTMLFormElement>('#form-entrada');
+  const nombre = document.querySelector<HTMLInputElement>('#nombre');
+  const email = document.querySelector<HTMLInputElement>('#email');
+  const boton = document.querySelector<HTMLButtonElement>('#boton-entrar');
+  const textoBoton = document.querySelector<HTMLSpanElement>('#texto-boton');
+  const spinner = document.querySelector<HTMLSpanElement>('#spinner');
+  const error = document.querySelector<HTMLParagraphElement>('#mensaje-error');
+
+  if (form && nombre && email && boton && textoBoton && spinner && error) {
+    const mostrarError = (mensaje: string) => {
+      error.textContent = mensaje;
+      error.classList.toggle('hidden', mensaje === '');
+    };
+
+    const cargando = (activo: boolean) => {
+      boton.disabled = activo;
+      nombre.disabled = activo;
+      email.disabled = activo;
+      textoBoton.textContent = activo ? 'Entrando…' : 'Ingresar';
+      spinner.classList.toggle('hidden', !activo);
+    };
+
+    for (const entrada of [nombre, email]) {
+      entrada.addEventListener('input', () => mostrarError(''));
+    }
+
+    form.addEventListener('submit', async (evento) => {
+      evento.preventDefault();
+      mostrarError('');
+      cargando(true);
+
+      try {
+        const respuesta = await fetch('/api/estudiante', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ nombre: nombre.value, email: email.value }),
+        });
+
+        const datos = (await respuesta.json().catch(() => null)) as
+          | { ok?: boolean; redirect?: string; error?: string }
+          | null;
+
+        if (respuesta.ok && datos?.ok && datos.redirect) {
+          window.location.href = datos.redirect;
+          return;
+        }
+
+        mostrarError(datos?.error ?? 'No pudimos guardar tus datos. Inténtalo de nuevo.');
+      } catch {
+        mostrarError('No hay conexión con el servidor. Revisa tu internet e inténtalo de nuevo.');
+      } finally {
+        cargando(false);
+      }
+    });
+  }
+</script>

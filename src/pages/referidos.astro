@@ -1,0 +1,348 @@
+---
+import TarjetaBeneficio from '../components/TarjetaBeneficio.astro';
+import Layout from '../layouts/Layout.astro';
+import { MAXIMO_REFERIDOS, contarReferidos } from '@/lib/referidos';
+import { leerSesion } from '@/lib/session';
+
+export const prerender = false;
+
+// Sin los datos del estudiante no hay a quién asociarle los referidos.
+const sesion = await leerSesion(Astro.cookies);
+if (!sesion) {
+  return Astro.redirect('/');
+}
+
+// Depende de la cookie: ninguna caché intermedia debe guardar esta respuesta.
+Astro.response.headers.set('Cache-Control', 'no-store');
+
+let yaReferidos = 0;
+try {
+  yaReferidos = await contarReferidos(sesion.estudianteId);
+} catch (error) {
+  // Si la base no responde se muestra el formulario completo; el envío ya
+  // dirá si algo falla.
+  console.error('[referidos] no se pudo contar los referidos:', error);
+}
+
+const restantes = Math.max(0, MAXIMO_REFERIDOS - yaReferidos);
+
+// Si ya envió algunos, las filas siguen la numeración: "Referido 3", "Referido 4"...
+const filas = Array.from({ length: restantes }, (_, i) => yaReferidos + i + 1);
+
+const subtitulo =
+  yaReferidos === 0
+    ? `Puedes referir hasta ${MAXIMO_REFERIDOS} personas.`
+    : restantes > 0
+      ? `Ya registraste ${yaReferidos}. Puedes referir ${restantes} ${restantes === 1 ? 'persona' : 'personas'} más.`
+      : `Ya registraste a tus ${MAXIMO_REFERIDOS} referidos.`;
+
+const primerNombre = sesion.nombre.split(' ')[0] ?? '';
+
+const claseCampo =
+  'h-14 w-full min-w-0 rounded-xl bg-white px-6 text-[16px] leading-6 text-black outline-none ' +
+  'placeholder:text-marcador focus-visible:ring-2 focus-visible:ring-rosa ' +
+  'focus-visible:ring-offset-2 focus-visible:ring-offset-morado-900 disabled:opacity-70';
+
+// Sin `display`: cada uso pone el suyo (el de "Referir a alguien más" empieza oculto).
+const claseBoton =
+  'cursor-pointer items-center justify-center gap-2 rounded-full bg-rosa px-8 ' +
+  'text-[16px] leading-6 font-semibold text-white transition-[opacity,transform] duration-150 ' +
+  'ease-out hover:opacity-90 active:scale-[0.97] focus-visible:ring-2 focus-visible:ring-white ' +
+  'focus-visible:ring-offset-2 focus-visible:ring-offset-morado-900 focus-visible:outline-none ' +
+  'disabled:cursor-not-allowed disabled:opacity-60';
+---
+
+<Layout
+  titulo="Refiere a alguien | Speak Easy"
+  fuente="inter"
+  clase="bg-morado-900 font-inter text-white"
+>
+  <link slot="head" rel="preload" as="image" href="/img/felipe.webp" fetchpriority="high" />
+
+  <main>
+    <!-- 01 Hero + 02 Confianza -->
+    <section aria-labelledby="titulo-hero" class="bloque-superior relative isolate overflow-hidden">
+      <div class="rejilla-hero mx-auto w-full max-w-[608px] px-6 lg:max-w-[1248px]">
+        <div class="relative z-10 pt-12 [grid-area:mensaje] lg:flex lg:min-h-[600px] lg:flex-col lg:justify-center lg:pt-[120px]">
+          <div class="flex flex-col gap-5 text-center lg:gap-6 lg:text-left">
+            <div class="flex flex-col gap-3 lg:gap-4">
+              <h1
+                id="titulo-hero"
+                class="text-[32px] leading-10 font-bold tracking-[-0.48px] lg:text-[56px] lg:leading-16 lg:tracking-[-0.84px]"
+              >
+                ¿Quieres darle un regalo a alguien?
+              </h1>
+              <p class="text-[26px] leading-[34px] font-semibold tracking-[-0.13px]">
+                ¡Ayúdale a aprender inglés!
+              </p>
+            </div>
+
+            <p class="text-[18px] leading-[26px] text-lila">
+              No sabes lo bonito que sería ver a un familiar, amigo o alguien cercano a ti
+              aprendiendo inglés con nosotros.
+            </p>
+
+            <a href="#referidos" class:list={[claseBoton, 'flex h-[52px] w-full lg:h-12 lg:w-auto lg:self-start']}>
+              Quiero referir a alguien
+            </a>
+          </div>
+        </div>
+
+        <div class="relative mt-[45px] h-[299px] [grid-area:foto] lg:mt-0 lg:h-auto">
+          <img
+            src="/img/felipe.webp"
+            alt="Felipe, de Speak Easy, con las manos extendidas"
+            width="1365"
+            height="997"
+            fetchpriority="high"
+            class="foto-felipe"
+          />
+          <div class="fundido-foto" aria-hidden="true"></div>
+        </div>
+
+        <div class="relative z-10 pt-8 pb-12 text-center [grid-area:confianza] lg:flex lg:items-start lg:gap-[34px] lg:pt-0 lg:pb-24 lg:text-left">
+          <span class="hidden h-[100px] w-[5px] shrink-0 bg-rosa lg:block" aria-hidden="true"></span>
+          <p class="text-[26px] leading-[34px] font-semibold tracking-[-0.13px] lg:w-[566px]">
+            Sabes que estará en buenas manos porque ya me conoces y también a todo el equipo de
+            Speak Easy
+          </p>
+        </div>
+      </div>
+    </section>
+
+    <!-- 03 Cómo funciona -->
+    <section aria-labelledby="titulo-como-funciona" class="bg-morado-800 px-6 py-12 lg:py-24">
+      <div class="mx-auto flex w-full max-w-[560px] flex-col gap-8 lg:max-w-[1200px] lg:gap-12">
+        <header class="flex flex-col gap-2 text-center lg:gap-4">
+          <h2
+            id="titulo-como-funciona"
+            class="text-[28px] leading-9 font-bold tracking-[-0.28px] lg:text-[40px] lg:leading-12 lg:tracking-[-0.4px]"
+          >
+            ¿Cómo funciona este regalo?
+          </h2>
+          <p class="text-[18px] leading-[26px] text-lila">
+            Es un beneficio para las personas que quieras que aprendan inglés con nosotros.
+          </p>
+        </header>
+
+        <div class="grid gap-4 lg:grid-cols-3 lg:gap-6">
+          <TarjetaBeneficio
+            dato="$100 USD"
+            detalle="de descuento"
+            icono="/img/iconos/etiqueta.png"
+            texto="Cada persona que refieras recibe $100 USD de descuento sobre el valor total del programa Aprende Inglés con Speak Easy."
+          />
+          <TarjetaBeneficio
+            dato="Exclusivo"
+            detalle="solo por referido"
+            icono="/img/iconos/personas.png"
+            texto="El beneficio aplica únicamente para las personas que nos escribas aquí abajo y que decidan entrar al programa."
+          />
+          <TarjetaBeneficio
+            dato="5 al 10"
+            detalle="de octubre"
+            icono="/img/iconos/calendario.png"
+            texto="Es la semana en la que el programa Aprende Inglés con Speak Easy abre de nuevo sus puertas."
+          />
+        </div>
+      </div>
+    </section>
+
+    <div class="bloque-inferior">
+      <!-- 04 Referidos -->
+      <section id="referidos" aria-labelledby="titulo-referidos" class="scroll-mt-4 px-6 py-12 lg:py-24">
+        <div class="mx-auto flex w-full max-w-[560px] flex-col items-center gap-6 lg:max-w-[1200px] lg:gap-10">
+          <header class="flex w-full flex-col gap-2 text-center lg:gap-3">
+            <h2
+              id="titulo-referidos"
+              class="text-[28px] leading-9 font-bold tracking-[-0.28px] lg:text-[40px] lg:leading-12 lg:tracking-[-0.4px]"
+            >
+              Escríbenos aquí sus datos
+            </h2>
+            <p id="subtitulo-referidos" class="text-[18px] leading-[26px] text-lila">{subtitulo}</p>
+          </header>
+
+          <div class="tarjeta-referidos w-full overflow-hidden rounded-3xl border-3 border-morado-900 p-6 lg:p-12">
+            {
+              restantes > 0 && (
+                <form id="form-referidos" class="flex flex-col gap-5 lg:gap-6">
+                  <div
+                    class="hidden gap-4 text-[14px] leading-5 font-medium tracking-[1px] text-lila lg:flex"
+                    aria-hidden="true"
+                  >
+                    <span class="flex-1">NOMBRE REFERIDO</span>
+                    <span class="w-[360px]">N° CELULAR</span>
+                  </div>
+
+                  <div class="flex flex-col gap-5 lg:gap-3">
+                    {filas.map((numero) => (
+                      <fieldset class="fila-referido flex min-w-0 flex-col gap-2 lg:flex-row lg:gap-4">
+                        <legend class="mb-2 text-[14px] leading-5 font-medium tracking-[1px] text-lila uppercase lg:sr-only">
+                          Referido {numero}
+                        </legend>
+                        <input
+                          name="nombre"
+                          type="text"
+                          autocomplete="off"
+                          maxlength="120"
+                          placeholder="Nombre y apellido"
+                          aria-label={`Nombre y apellido del referido ${numero}`}
+                          class:list={[claseCampo, 'lg:flex-1']}
+                        />
+                        <input
+                          name="telefono"
+                          type="tel"
+                          inputmode="tel"
+                          autocomplete="off"
+                          maxlength="30"
+                          placeholder="+57 300 000 0000"
+                          aria-label={`Número de celular del referido ${numero}`}
+                          class:list={[claseCampo, 'lg:w-[360px] lg:flex-none']}
+                        />
+                      </fieldset>
+                    ))}
+                  </div>
+
+                  <p
+                    id="error-referidos"
+                    role="alert"
+                    aria-live="polite"
+                    class="hidden text-center text-[16px] leading-6 text-rosa"
+                  />
+
+                  <button id="boton-referidos" type="submit" class:list={[claseBoton, 'flex h-14 w-full']}>
+                    <span id="texto-boton-referidos">Enviar mis referidos</span>
+                    <span
+                      id="spinner-referidos"
+                      aria-hidden="true"
+                      class="hidden size-4 animate-spin rounded-full border-2 border-white/40 border-t-white"
+                    />
+                  </button>
+                </form>
+              )
+            }
+
+            <div
+              id="referidos-listos"
+              tabindex="-1"
+              class:list={[
+                'flex-col items-center gap-3 py-4 text-center outline-none lg:py-2',
+                restantes > 0 ? 'hidden' : 'flex',
+              ]}
+            >
+              <p class="text-[26px] leading-[34px] font-semibold tracking-[-0.13px]">
+                ¡Gracias{primerNombre && `, ${primerNombre}`}!
+              </p>
+              <p id="texto-listos" class="max-w-[640px] text-[18px] leading-[26px] text-lila">
+                Ya registraste a tus {MAXIMO_REFERIDOS} referidos. Pronto nos pondremos en contacto con
+                ellos.
+              </p>
+              <a id="referir-mas" href="/referidos" class:list={[claseBoton, 'mt-3 hidden h-12']}>
+                Referir a alguien más
+              </a>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- 05 Cierre -->
+      <section class="px-6 pb-16 lg:pb-[120px]">
+        <p class="mx-auto max-w-[560px] text-center text-[26px] leading-[34px] font-semibold tracking-[-0.13px] lg:max-w-[990px]">
+          Esta es una forma muy bonita de ayudarlos y para mí es una forma de agradecerte por
+          confiar en nosotros.
+        </p>
+      </section>
+    </div>
+  </main>
+</Layout>
+
+<script>
+  const form = document.querySelector<HTMLFormElement>('#form-referidos');
+  const boton = document.querySelector<HTMLButtonElement>('#boton-referidos');
+  const textoBoton = document.querySelector<HTMLSpanElement>('#texto-boton-referidos');
+  const spinner = document.querySelector<HTMLSpanElement>('#spinner-referidos');
+  const error = document.querySelector<HTMLParagraphElement>('#error-referidos');
+  const listos = document.querySelector<HTMLDivElement>('#referidos-listos');
+  const textoListos = document.querySelector<HTMLParagraphElement>('#texto-listos');
+  const referirMas = document.querySelector<HTMLAnchorElement>('#referir-mas');
+  const subtitulo = document.querySelector<HTMLParagraphElement>('#subtitulo-referidos');
+
+  if (form && boton && textoBoton && spinner && error && listos && textoListos && referirMas && subtitulo) {
+    const filas = [...form.querySelectorAll<HTMLFieldSetElement>('.fila-referido')];
+
+    const mostrarError = (mensaje: string) => {
+      error.textContent = mensaje;
+      error.classList.toggle('hidden', mensaje === '');
+    };
+
+    const cargando = (activo: boolean) => {
+      boton.disabled = activo;
+      for (const fila of filas) fila.disabled = activo;
+      textoBoton.textContent = activo ? 'Enviando…' : 'Enviar mis referidos';
+      spinner.classList.toggle('hidden', !activo);
+    };
+
+    form.addEventListener('input', () => mostrarError(''));
+
+    form.addEventListener('submit', async (evento) => {
+      evento.preventDefault();
+      mostrarError('');
+
+      const referidos = filas.map((fila) => ({
+        nombre: fila.querySelector<HTMLInputElement>('[name="nombre"]')?.value ?? '',
+        telefono: fila.querySelector<HTMLInputElement>('[name="telefono"]')?.value ?? '',
+      }));
+
+      cargando(true);
+
+      try {
+        const respuesta = await fetch('/api/referidos', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ referidos }),
+        });
+
+        const datos = (await respuesta.json().catch(() => null)) as {
+          ok?: boolean;
+          error?: string;
+          redirect?: string;
+          registrados?: number;
+          restantes?: number;
+        } | null;
+
+        if (respuesta.ok && datos?.ok) {
+          const registrados = datos.registrados ?? 0;
+          const restantes = datos.restantes ?? 0;
+
+          textoListos.textContent =
+            (registrados === 1
+              ? 'Registramos a tu referido.'
+              : `Registramos a tus ${registrados} referidos.`) +
+            ' Pronto nos pondremos en contacto con ellos.' +
+            (restantes > 0 ? ` Todavía puedes referir ${restantes} ${restantes === 1 ? 'persona' : 'personas'} más.` : '');
+
+          referirMas.classList.toggle('hidden', restantes === 0);
+          referirMas.classList.toggle('flex', restantes > 0);
+          subtitulo.textContent = 'Recibimos tus referidos.';
+
+          form.remove();
+          listos.classList.remove('hidden');
+          listos.classList.add('flex');
+          listos.focus();
+          return;
+        }
+
+        if (respuesta.status === 401 && datos?.redirect) {
+          window.location.href = datos.redirect;
+          return;
+        }
+
+        mostrarError(datos?.error ?? 'No pudimos guardar tus referidos. Inténtalo de nuevo.');
+      } catch {
+        mostrarError('No hay conexión con el servidor. Revisa tu internet e inténtalo de nuevo.');
+      } finally {
+        cargando(false);
+      }
+    });
+  }
+</script>

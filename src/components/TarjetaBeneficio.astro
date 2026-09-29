@@ -1,0 +1,30 @@
+---
+/**
+ * Tarjeta de "¿Cómo funciona este regalo?": el dato grande con su detalle, el
+ * icono a la derecha y la explicación debajo.
+ */
+interface Props {
+  /** Dato destacado, p. ej. "$100 USD". */
+  dato: string;
+  /** Línea pequeña bajo el dato, p. ej. "de descuento". */
+  detalle: string;
+  /** Ruta del icono en /public (PNG de 96px pintado a 48px). */
+  icono: string;
+  texto: string;
+}
+
+const { dato, detalle, icono, texto } = Astro.props;
+---
+
+<article class="tarjeta-beneficio flex flex-col gap-4 overflow-hidden rounded-[20px] border-3 border-morado-700 p-6 lg:p-8">
+  <div class="flex items-start gap-1">
+    <h3 class="flex min-w-0 flex-1 flex-col gap-1 text-white">
+      <span class="text-[32px] leading-10 font-bold tracking-[-0.32px] lg:text-[40px] lg:leading-12 lg:tracking-[-0.4px]">
+        {dato}
+      </span>
+      <span class="text-[14px] leading-5 font-medium tracking-[0.07px]">{detalle}</span>
+    </h3>
+    <img src={icono} alt="" width="48" height="48" loading="lazy" class="size-12 shrink-0" />
+  </div>
+  <p class="text-[16px] leading-6 text-white">{texto}</p>
+</article>

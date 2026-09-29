@@ -1,47 +1,101 @@
-# Astro Starter Kit: Basics
+# Landing de referidos — Speak Easy
+
+Página para que los estudiantes de Speak Easy refieran a familiares y amigos al
+programa Aprende Inglés con Speak Easy.
+
+- **Astro 7** en modo servidor (SSR) desplegado en **Vercel**
+- **Tailwind CSS 4**, diseño móvil primero (desktop a partir de 1024px)
+- **PostgreSQL** con el paquete `pg` (sin ORM) y migraciones en SQL plano
+- Misma base de datos que `landing-auth-zoom`, pero en su propio esquema: `referidos`
+
+Diseño: Figma · REFERIDOS-LANDING ([desktop](https://www.figma.com/design/6tLeXU2MUMznXXYUPqrkHB/REFERIDOS-LANDING?node-id=5-45),
+[móvil](https://www.figma.com/design/6tLeXU2MUMznXXYUPqrkHB/REFERIDOS-LANDING?node-id=21-2)).
+
+---
+
+## Cómo funciona
+
+1. El estudiante entra a `/` y escribe su **nombre** y su **correo** (misma
+   página de entrada que `landing-auth-zoom`). No se valida el formato: solo que
+   no vayan vacíos.
+2. `POST /api/estudiante` hace *upsert* en `estudiantes` por correo (recortado y
+   en minúsculas) y deja una **cookie firmada** (JWT HS256, `httpOnly`, 30 días)
+   con el id del estudiante. Si el correo ya existía, se reutiliza el registro.
+3. En `/referidos` ve la landing y, al final, el formulario de hasta **5
+   referidos** (nombre y celular). Sin cookie válida, vuelve a `/`.
+4. `POST /api/referidos` guarda las filas llenas en `persona_referida`,
+   asociadas al estudiante de la cookie:
+   - las filas vacías se ignoran; las que tienen solo nombre o solo celular se
+     rechazan;
+   - el tope de 5 cuenta también los envíos anteriores, y se comprueba en la
+     misma transacción que inserta, con el estudiante bloqueado.
+
+## Base de datos
+
+```
+referidos.estudiantes        id, nombre, email (único), creado_en, actualizado_en
+referidos.persona_referida   id, estudiante_id → estudiantes.id, nombre, telefono, creado_en
+```
+
+Consulta rápida de quién refirió a quién:
+
+```sql
+SELECT e.nombre AS estudiante, e.email, p.nombre AS referido, p.telefono, p.creado_en
+FROM referidos.persona_referida p
+JOIN referidos.estudiantes e ON e.id = p.estudiante_id
+ORDER BY p.creado_en DESC;
+```
+
+## Puesta en marcha
 
 ```sh
-npm create astro@latest -- --template basics
+npm install
+cp .env.example .env.local     # y rellenar los datos de PostgreSQL y SESSION_SECRET
+npm run migrate                # crea el esquema `referidos` y sus tablas si faltan
+npm run dev
 ```
 
-> 🧑‍🚀 **Seasoned astronaut?** Delete this file. Have fun!
+En Vercel hay que cargar las mismas variables de `.env.example` en
+*Settings → Environment Variables*.
 
-## 🚀 Project Structure
+### Windows con Smart App Control
 
-Inside of your Astro project, you'll see the following folders and files:
+Si `npm run dev` falla con *"Cannot find native binding"*, no es un problema de
+npm: Smart App Control bloquea el compilador nativo de Astro. Se soluciona con
+la versión WebAssembly del compilador, que Astro usa sola cuando la nativa no
+carga (hay que repetirlo después de cada `npm install`):
 
-```text
-/
-├── public/
-│   └── favicon.svg
-├── src
-│   ├── assets
-│   │   └── astro.svg
-│   ├── components
-│   │   └── Welcome.astro
-│   ├── layouts
-│   │   └── Layout.astro
-│   └── pages
-│       └── index.astro
-└── package.json
+```sh
+npm install --no-save --force @astrojs/compiler-binding-wasm32-wasi@<versión de @astrojs/compiler-binding>
 ```
 
-To learn more about the folder structure of an Astro project, refer to [our guide on project structure](https://docs.astro.build/en/basics/project-structure/).
+## Imágenes
 
-## 🧞 Commands
+Los originales de diseño están en `design/originales/` y **no** se despliegan.
+`npm run optimizar-imagenes` genera a partir de ellos los WebP de `public/img/`
+(van versionados). Solo hay que correrlo cuando diseño entregue un original
+nuevo. Los iconos de las tarjetas (`public/img/iconos/`) se sirven tal cual.
 
-All commands are run from the root of the project, from a terminal:
+La foto de Felipe trae el halo incluido, así que es mucho más grande que la
+persona: su tamaño y posición en cada breakpoint están calculados en
+`src/styles/global.css` (`.foto-felipe`). Si cambia el original, hay que
+revisar esas cifras.
 
-| Command                   | Action                                           |
-| :------------------------ | :----------------------------------------------- |
-| `npm install`             | Installs dependencies                            |
-| `npm run dev`             | Starts local dev server at `localhost:4321`      |
-| `npm run build`           | Build your production site to `./dist/`          |
-| `npm run preview`         | Preview your build locally, before deploying     |
-| `npm run astro ...`       | Run CLI commands like `astro add`, `astro check` |
-| `npm run astro -- --help` | Get help using the Astro CLI                     |
+## Estructura
 
-## 👀 Want to learn more?
-
-Feel free to check [our documentation](https://docs.astro.build) or jump into our [Discord server](https://astro.build/chat).
-"# landing-referidos" 
+```
+db/migrations/001_init.sql        Tablas estudiantes y persona_referida
+scripts/migrate.mjs               Aplica las migraciones pendientes (npm run migrate)
+scripts/optimizar-imagenes.mjs    Genera public/img desde design/originales
+src/lib/env.ts                    Validación de variables de entorno (zod)
+src/lib/db.ts                     Pool de PostgreSQL (singleton)
+src/lib/session.ts                Cookie firmada con el id del estudiante
+src/lib/referidos.ts              Tope de referidos y conteo por estudiante
+src/layouts/Layout.astro          <head> común: favicon, precarga de fuente
+src/styles/global.css             Fuentes, tokens del diseño, fondos y tarjetas
+src/components/TarjetaBeneficio.astro   Tarjeta de "¿Cómo funciona este regalo?"
+src/pages/index.astro             Formulario de entrada (nombre y correo)
+src/pages/referidos.astro         Landing con el formulario de referidos
+src/pages/api/estudiante.ts       Registra al estudiante y crea la cookie
+src/pages/api/referidos.ts        Guarda los referidos del estudiante
+```
