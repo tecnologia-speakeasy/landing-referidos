@@ -1,17 +1,22 @@
 ---
+import DialogoPaises from '../components/DialogoPaises.astro';
+import SelectorPais from '../components/SelectorPais.astro';
 import TarjetaBeneficio from '../components/TarjetaBeneficio.astro';
 import Layout from '../layouts/Layout.astro';
 import { fondoHero, fondoReferidos, fotoFelipe, urlCss } from '@/lib/originales';
-import { MAXIMO_REFERIDOS, contarReferidos } from '@/lib/referidos';
-import { leerSesion } from '@/lib/session';
+import { MAXIMO_POR_ENVIO, contarReferidos } from '@/lib/referidos';
+import { tomarSesion } from '@/lib/session';
 
 export const prerender = false;
 
-// Sin los datos del estudiante no hay a quién asociarle los referidos.
-const sesion = await leerSesion(Astro.cookies);
-if (!sesion) {
+// Sin los datos del estudiante no hay a quién asociarle los referidos. La
+// cookie se borra al leerla: si se recarga la página, se vuelve al formulario
+// de entrada. El token queda en el formulario para enviar los referidos.
+const tomada = await tomarSesion(Astro.cookies);
+if (!tomada) {
   return Astro.redirect('/');
 }
+const { sesion, token } = tomada;
 
 // Depende de la cookie: ninguna caché intermedia debe guardar esta respuesta.
 Astro.response.headers.set('Cache-Control', 'no-store');
@@ -25,26 +30,35 @@ try {
   console.error('[referidos] no se pudo contar los referidos:', error);
 }
 
-const restantes = Math.max(0, MAXIMO_REFERIDOS - yaReferidos);
+// Filas con que arranca el formulario; "Agregar otra persona" suma más.
+const FILAS_INICIALES = 5;
 
 // Si ya envió algunos, las filas siguen la numeración: "Referido 3", "Referido 4"...
-const filas = Array.from({ length: restantes }, (_, i) => yaReferidos + i + 1);
+const filas = Array.from({ length: FILAS_INICIALES }, (_, i) => yaReferidos + i + 1);
 
 const subtitulo =
   yaReferidos === 0
-    ? `Puedes referir hasta ${MAXIMO_REFERIDOS} personas.`
-    : restantes > 0
-      ? `Ya registraste ${yaReferidos}. Puedes referir ${restantes} ${restantes === 1 ? 'persona' : 'personas'} más.`
-      : `Ya registraste a tus ${MAXIMO_REFERIDOS} referidos.`;
+    ? 'Puedes referir a todas las personas que quieras.'
+    : `Ya registraste ${yaReferidos} ${yaReferidos === 1 ? 'referido' : 'referidos'}. ` +
+      'Puedes seguir refiriendo a todas las personas que quieras.';
 
 const primerNombre = sesion.nombre.split(' ')[0] ?? '';
 
 const claseCampo =
   'h-14 w-full min-w-0 rounded-xl bg-white px-6 text-[16px] leading-6 text-black outline-none ' +
   'placeholder:text-marcador focus-visible:ring-2 focus-visible:ring-rosa ' +
-  'focus-visible:ring-offset-2 focus-visible:ring-offset-morado-900 disabled:opacity-70';
+  'focus-visible:ring-offset-2 focus-visible:ring-offset-morado-900 disabled:opacity-70 ' +
+  'aria-[invalid=true]:ring-2 aria-[invalid=true]:ring-rosa';
 
-// Sin `display`: cada uso pone el suyo (el de "Referir a alguien más" empieza oculto).
+// El celular es una sola caja blanca con el selector de país y el número dentro.
+const claseCampoTelefono =
+  'campo-telefono flex h-14 w-full min-w-0 items-center rounded-xl bg-white ' +
+  'focus-within:ring-2 focus-within:ring-rosa focus-within:ring-offset-2 ' +
+  'focus-within:ring-offset-morado-900 has-[:disabled]:opacity-70 ' +
+  'has-[[aria-invalid=true]]:ring-2 has-[[aria-invalid=true]]:ring-rosa ' +
+  'lg:w-[360px] lg:flex-none';
+
+// Sin `display`: cada uso pone el suyo.
 const claseBoton =
   'cursor-pointer items-center justify-center gap-2 rounded-full bg-rosa px-8 ' +
   'text-[16px] leading-6 font-semibold text-white transition-[opacity,transform] duration-150 ' +
@@ -168,83 +182,105 @@ const claseBoton =
           </header>
 
           <div class="tarjeta-referidos w-full overflow-hidden rounded-3xl border-3 border-morado-900 p-6 lg:p-12">
-            {
-              restantes > 0 && (
-                <form id="form-referidos" class="flex flex-col gap-5 lg:gap-6">
-                  <div
-                    class="hidden gap-4 text-[14px] leading-5 font-medium tracking-[1px] text-lila lg:flex"
-                    aria-hidden="true"
-                  >
-                    <span class="flex-1">NOMBRE REFERIDO</span>
-                    <span class="w-[360px]">N° CELULAR</span>
-                  </div>
+            <form
+              id="form-referidos"
+              data-sesion={token}
+              data-ya={yaReferidos}
+              data-maximo-envio={MAXIMO_POR_ENVIO}
+              class="flex flex-col gap-5 lg:gap-6"
+            >
+              <div
+                class="hidden gap-4 text-[14px] leading-5 font-medium tracking-[1px] text-lila lg:flex"
+                aria-hidden="true"
+              >
+                <span class="flex-1">NOMBRE REFERIDO</span>
+                <span class="w-[360px]">N° CELULAR</span>
+              </div>
 
-                  <div class="flex flex-col gap-5 lg:gap-3">
-                    {filas.map((numero) => (
-                      <fieldset class="fila-referido flex min-w-0 flex-col gap-2 lg:flex-row lg:gap-4">
-                        <legend class="mb-2 text-[14px] leading-5 font-medium tracking-[1px] text-lila uppercase lg:sr-only">
-                          Referido {numero}
-                        </legend>
-                        <input
-                          name="nombre"
-                          type="text"
-                          autocomplete="off"
-                          maxlength="120"
-                          placeholder="Nombre y apellido"
-                          aria-label={`Nombre y apellido del referido ${numero}`}
-                          class:list={[claseCampo, 'lg:flex-1']}
-                        />
+              <div id="filas-referidos" class="flex flex-col gap-5 lg:gap-3">
+                {
+                  filas.map((numero) => (
+                    <fieldset
+                      data-numero={numero}
+                      class="fila-referido flex min-w-0 flex-col gap-2 lg:flex-row lg:gap-4"
+                    >
+                      <legend class="mb-2 text-[14px] leading-5 font-medium tracking-[1px] text-lila uppercase lg:sr-only">
+                        Referido {numero}
+                      </legend>
+                      <input
+                        name="nombre"
+                        type="text"
+                        autocomplete="off"
+                        maxlength="120"
+                        placeholder="Nombre y apellido"
+                        aria-label={`Nombre y apellido del referido ${numero}`}
+                        class:list={[claseCampo, 'lg:flex-1']}
+                      />
+                      <div class={claseCampoTelefono}>
+                        <SelectorPais numero={numero} />
                         <input
                           name="telefono"
                           type="tel"
                           inputmode="tel"
                           autocomplete="off"
                           maxlength="30"
-                          placeholder="+57 300 000 0000"
+                          placeholder="300 000 0000"
                           aria-label={`Número de celular del referido ${numero}`}
-                          class:list={[claseCampo, 'lg:w-[360px] lg:flex-none']}
+                          class="h-full w-full min-w-0 flex-1 rounded-r-xl bg-transparent pr-6 pl-3 text-[16px] leading-6 text-black outline-none placeholder:text-marcador"
                         />
-                      </fieldset>
-                    ))}
-                  </div>
+                      </div>
+                    </fieldset>
+                  ))
+                }
+              </div>
 
-                  <p
-                    id="error-referidos"
-                    role="alert"
-                    aria-live="polite"
-                    class="hidden text-center text-[16px] leading-6 text-rosa"
-                  />
+              <button
+                id="agregar-referido"
+                type="button"
+                class="flex cursor-pointer items-center gap-2 self-start rounded-full py-1 pr-2 text-[16px] leading-6 font-semibold text-lila transition-colors hover:text-white focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-2 focus-visible:ring-offset-morado-900 focus-visible:outline-none disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                <svg class="size-5" viewBox="0 0 20 20" aria-hidden="true">
+                  <path
+                    d="M10 4v12M4 10h12"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="2"
+                    stroke-linecap="round"></path>
+                </svg>
+                Agregar otra persona
+              </button>
 
-                  <button id="boton-referidos" type="submit" class:list={[claseBoton, 'flex h-14 w-full']}>
-                    <span id="texto-boton-referidos">Enviar mis referidos</span>
-                    <span
-                      id="spinner-referidos"
-                      aria-hidden="true"
-                      class="hidden size-4 animate-spin rounded-full border-2 border-white/40 border-t-white"
-                    />
-                  </button>
-                </form>
-              )
-            }
+              <p
+                id="error-referidos"
+                role="alert"
+                aria-live="polite"
+                class="hidden text-center text-[16px] leading-6 text-rosa"
+              />
+
+              <button id="boton-referidos" type="submit" class:list={[claseBoton, 'flex h-14 w-full']}>
+                <span id="texto-boton-referidos">Enviar mis referidos</span>
+                <span
+                  id="spinner-referidos"
+                  aria-hidden="true"
+                  class="hidden size-4 animate-spin rounded-full border-2 border-white/40 border-t-white"
+                />
+              </button>
+            </form>
 
             <div
               id="referidos-listos"
               tabindex="-1"
-              class:list={[
-                'flex-col items-center gap-3 py-4 text-center outline-none lg:py-2',
-                restantes > 0 ? 'hidden' : 'flex',
-              ]}
+              class="hidden flex-col items-center gap-3 py-4 text-center outline-none lg:py-2"
             >
               <p class="text-[26px] leading-[34px] font-semibold tracking-[-0.13px]">
                 ¡Gracias{primerNombre && `, ${primerNombre}`}!
               </p>
               <p id="texto-listos" class="max-w-[640px] text-[18px] leading-[26px] text-lila">
-                Ya registraste a tus {MAXIMO_REFERIDOS} referidos. Pronto nos pondremos en contacto con
-                ellos.
+                Pronto nos pondremos en contacto con ellos.
               </p>
-              <a id="referir-mas" href="/referidos" class:list={[claseBoton, 'mt-3 hidden h-12']}>
+              <button id="referir-mas" type="button" class:list={[claseBoton, 'mt-3 flex h-12']}>
                 Referir a alguien más
-              </a>
+              </button>
             </div>
           </div>
         </div>
@@ -259,43 +295,203 @@ const claseBoton =
       </section>
     </div>
   </main>
+
+  <DialogoPaises />
 </Layout>
 
 <script>
+  import { elegirPais, paisDe } from '@/lib/selector-pais';
+  import {
+    contarDigitos,
+    limitesTelefono,
+    limpiarTelefono,
+    problemaTelefono,
+    separarIndicativo,
+  } from '@/lib/telefono';
+
   const form = document.querySelector<HTMLFormElement>('#form-referidos');
+  const contenedor = document.querySelector<HTMLDivElement>('#filas-referidos');
+  const primeraFila = contenedor?.querySelector<HTMLFieldSetElement>('.fila-referido');
+  const agregar = document.querySelector<HTMLButtonElement>('#agregar-referido');
   const boton = document.querySelector<HTMLButtonElement>('#boton-referidos');
   const textoBoton = document.querySelector<HTMLSpanElement>('#texto-boton-referidos');
   const spinner = document.querySelector<HTMLSpanElement>('#spinner-referidos');
   const error = document.querySelector<HTMLParagraphElement>('#error-referidos');
   const listos = document.querySelector<HTMLDivElement>('#referidos-listos');
   const textoListos = document.querySelector<HTMLParagraphElement>('#texto-listos');
-  const referirMas = document.querySelector<HTMLAnchorElement>('#referir-mas');
+  const referirMas = document.querySelector<HTMLButtonElement>('#referir-mas');
   const subtitulo = document.querySelector<HTMLParagraphElement>('#subtitulo-referidos');
 
-  if (form && boton && textoBoton && spinner && error && listos && textoListos && referirMas && subtitulo) {
-    const filas = [...form.querySelectorAll<HTMLFieldSetElement>('.fila-referido')];
+  if (
+    form && contenedor && primeraFila && agregar && boton && textoBoton && spinner &&
+    error && listos && textoListos && referirMas && subtitulo
+  ) {
+    const maximoPorEnvio = Number(form.dataset.maximoEnvio);
+    let yaRegistrados = Number(form.dataset.ya ?? 0);
+
+    const filas = () => [...contenedor.querySelectorAll<HTMLFieldSetElement>('.fila-referido')];
+    const filasIniciales = filas().length;
+
+    // Copia intacta de una fila, tomada antes de que se escriba nada: de aquí
+    // salen las que se agregan y las del formulario nuevo tras un envío.
+    const plantilla = primeraFila.cloneNode(true) as HTMLFieldSetElement;
+
+    const campo = (fila: Element, nombre: string) =>
+      fila.querySelector<HTMLInputElement>(`input[name="${nombre}"]`);
 
     const mostrarError = (mensaje: string) => {
       error.textContent = mensaje;
       error.classList.toggle('hidden', mensaje === '');
     };
 
+    const mostrar = (elemento: HTMLElement, visible: boolean) => {
+      elemento.classList.toggle('hidden', !visible);
+      elemento.classList.toggle('flex', visible);
+    };
+
     const cargando = (activo: boolean) => {
       boton.disabled = activo;
-      for (const fila of filas) fila.disabled = activo;
+      agregar.disabled = activo;
+      for (const fila of filas()) fila.disabled = activo;
       textoBoton.textContent = activo ? 'Enviando…' : 'Enviar mis referidos';
       spinner.classList.toggle('hidden', !activo);
     };
 
-    form.addEventListener('input', () => mostrarError(''));
+    const numerar = (fila: HTMLFieldSetElement, numero: number) => {
+      fila.dataset.numero = String(numero);
+      const leyenda = fila.querySelector('legend');
+      if (leyenda) leyenda.textContent = `Referido ${numero}`;
+      const etiquetaPais = fila.querySelector('.etiqueta-pais');
+      if (etiquetaPais) etiquetaPais.textContent = `País del celular del referido ${numero}:`;
+      campo(fila, 'nombre')?.setAttribute('aria-label', `Nombre y apellido del referido ${numero}`);
+      campo(fila, 'telefono')?.setAttribute('aria-label', `Número de celular del referido ${numero}`);
+    };
+
+    const nuevaFila = (numero: number) => {
+      const fila = plantilla.cloneNode(true) as HTMLFieldSetElement;
+      numerar(fila, numero);
+      return fila;
+    };
+
+    const actualizarAgregar = () => {
+      agregar.hidden = filas().length >= maximoPorEnvio;
+    };
+
+    const textoSubtitulo = () =>
+      `Ya registraste ${yaRegistrados} ${yaRegistrados === 1 ? 'referido' : 'referidos'}. ` +
+      'Puedes seguir refiriendo a todas las personas que quieras.';
+
+    // Último valor aceptado de cada celular, para deshacer lo que pase del máximo.
+    const anteriores = new WeakMap<HTMLInputElement, string>();
+
+    // No deja escribir letras ni pasar del máximo de dígitos del país. Si el
+    // número ya estaba completo se descarta lo que se intentó añadir; si no (por
+    // ejemplo, al pegar un número largo), se conservan los primeros dígitos.
+    const ajustarTelefono = (telefono: HTMLInputElement) => {
+      const fila = telefono.closest('.fila-referido');
+      if (!fila) return;
+      let anterior = anteriores.get(telefono) ?? '';
+
+      // "+57 300…" pegado o escrito a mano: el indicativo pasa al selector.
+      const separado = separarIndicativo(telefono.value, paisDe(fila));
+      if (separado) {
+        telefono.value = separado.resto;
+        telefono.setSelectionRange(separado.resto.length, separado.resto.length);
+        elegirPais(fila, separado.pais);
+        anterior = '';
+      }
+
+      const { maximo } = limitesTelefono(paisDe(fila));
+      const valor = telefono.value;
+      const cursor = telefono.selectionStart ?? valor.length;
+
+      if (contarDigitos(anterior) >= maximo && contarDigitos(valor) > maximo) {
+        const posicion = Math.max(0, cursor - (valor.length - anterior.length));
+        telefono.value = anterior;
+        telefono.setSelectionRange(posicion, posicion);
+        return;
+      }
+
+      const limpio = limpiarTelefono(valor, maximo);
+      if (limpio !== valor) {
+        const posicion = limpiarTelefono(valor.slice(0, cursor), maximo).length;
+        telefono.value = limpio;
+        telefono.setSelectionRange(posicion, posicion);
+      }
+      anteriores.set(telefono, telefono.value);
+    };
+
+    // Al cambiar de país el número se recorta a su nuevo máximo.
+    const alCambiarPais = (fila: Element) => {
+      const telefono = campo(fila, 'telefono');
+      if (!telefono) return;
+
+      const pais = paisDe(fila);
+      telefono.value = limpiarTelefono(telefono.value, limitesTelefono(pais).maximo);
+      telefono.placeholder = pais.iso === 'co' ? '300 000 0000' : 'Número de celular';
+      telefono.removeAttribute('aria-invalid');
+      anteriores.set(telefono, telefono.value);
+      mostrarError('');
+    };
+
+    form.addEventListener('input', (evento) => {
+      const objetivo = evento.target;
+      if (!(objetivo instanceof HTMLInputElement)) return;
+
+      mostrarError('');
+      objetivo.removeAttribute('aria-invalid');
+      if (objetivo.name === 'telefono') ajustarTelefono(objetivo);
+    });
+
+    // El selector de país avisa con un `change` desde su campo oculto.
+    form.addEventListener('change', (evento) => {
+      const objetivo = evento.target;
+      if (!(objetivo instanceof HTMLInputElement) || objetivo.name !== 'pais') return;
+
+      const fila = objetivo.closest('.fila-referido');
+      if (fila) alCambiarPais(fila);
+    });
+
+    agregar.addEventListener('click', () => {
+      const fila = nuevaFila(yaRegistrados + filas().length + 1);
+      contenedor.append(fila);
+      actualizarAgregar();
+      campo(fila, 'nombre')?.focus();
+    });
+
+    // Recargar la página no sirve (la sesión vale para una sola carga), así
+    // que para seguir refiriendo se vuelve a mostrar el formulario.
+    referirMas.addEventListener('click', () => {
+      subtitulo.textContent = textoSubtitulo();
+      mostrar(listos, false);
+      mostrar(form, true);
+      campo(contenedor, 'nombre')?.focus();
+    });
 
     form.addEventListener('submit', async (evento) => {
       evento.preventDefault();
       mostrarError('');
 
-      const referidos = filas.map((fila) => ({
-        nombre: fila.querySelector<HTMLInputElement>('[name="nombre"]')?.value ?? '',
-        telefono: fila.querySelector<HTMLInputElement>('[name="telefono"]')?.value ?? '',
+      // El resto de reglas (nombre y celular juntos) las revisa la API; aquí
+      // solo se evita un viaje por un número mal escrito.
+      for (const fila of filas()) {
+        const telefono = campo(fila, 'telefono');
+        const numero = telefono?.value.trim() ?? '';
+        if (!telefono || numero === '') continue;
+
+        const problema = problemaTelefono(paisDe(fila), numero);
+        if (problema) {
+          telefono.setAttribute('aria-invalid', 'true');
+          telefono.focus();
+          mostrarError(`El celular del referido ${fila.dataset.numero} ${problema}.`);
+          return;
+        }
+      }
+
+      const referidos = filas().map((fila) => ({
+        nombre: campo(fila, 'nombre')?.value ?? '',
+        pais: paisDe(fila).iso,
+        telefono: campo(fila, 'telefono')?.value ?? '',
       }));
 
       cargando(true);
@@ -303,7 +499,10 @@ const claseBoton =
       try {
         const respuesta = await fetch('/api/referidos', {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${form.dataset.sesion ?? ''}`,
+          },
           body: JSON.stringify({ referidos }),
         });
 
@@ -312,27 +511,28 @@ const claseBoton =
           error?: string;
           redirect?: string;
           registrados?: number;
-          restantes?: number;
         } | null;
 
         if (respuesta.ok && datos?.ok) {
           const registrados = datos.registrados ?? 0;
-          const restantes = datos.restantes ?? 0;
+          yaRegistrados += registrados;
 
           textoListos.textContent =
             (registrados === 1
               ? 'Registramos a tu referido.'
               : `Registramos a tus ${registrados} referidos.`) +
-            ' Pronto nos pondremos en contacto con ellos.' +
-            (restantes > 0 ? ` Todavía puedes referir ${restantes} ${restantes === 1 ? 'persona' : 'personas'} más.` : '');
-
-          referirMas.classList.toggle('hidden', restantes === 0);
-          referirMas.classList.toggle('flex', restantes > 0);
+            ' Pronto nos pondremos en contacto con ellos.';
           subtitulo.textContent = 'Recibimos tus referidos.';
 
-          form.remove();
-          listos.classList.remove('hidden');
-          listos.classList.add('flex');
+          // Filas nuevas y vacías, numeradas a partir del siguiente referido,
+          // por si pulsa "Referir a alguien más".
+          contenedor.replaceChildren(
+            ...Array.from({ length: filasIniciales }, (_, i) => nuevaFila(yaRegistrados + i + 1)),
+          );
+          actualizarAgregar();
+
+          mostrar(form, false);
+          mostrar(listos, true);
           listos.focus();
           return;
         }

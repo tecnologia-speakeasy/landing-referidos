@@ -395,6 +395,11 @@ html {
   }
 }
 
+/* Con el buscador de países abierto (DialogoPaises.astro), la página de atrás no se desplaza. */
+html:has(#dialogo-paises[open]) {
+  overflow: hidden;
+}
+
 /* Respeta a quien pide menos animación en el sistema. */
 @media (prefers-reduced-motion: reduce) {
   html {

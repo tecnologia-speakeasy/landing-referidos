@@ -1,0 +1,46 @@
+---
+/**
+ * Selector de indicativo de una fila de referidos: la bandera y el indicativo
+ * del país elegido (Colombia por defecto). Al pulsarlo se abre el buscador de
+ * países (DialogoPaises.astro), que es uno solo para todas las filas. El país
+ * viaja en el campo oculto `pais`; ver `@/lib/selector-pais`.
+ */
+import { PAIS_POR_DEFECTO } from '@/lib/telefono';
+
+interface Props {
+  /** Número de la fila, para el nombre accesible ("País del celular del referido 3"). */
+  numero: number;
+}
+
+const { numero } = Astro.props;
+const pais = PAIS_POR_DEFECTO;
+---
+
+<div class="selector-pais flex h-full shrink-0">
+  <input type="hidden" name="pais" value={pais.iso} />
+  <button
+    type="button"
+    aria-haspopup="dialog"
+    aria-controls="dialogo-paises"
+    class="boton-pais flex h-full cursor-pointer items-center gap-2 rounded-l-xl border-r border-black/10 pr-2 pl-4 text-[16px] leading-6 text-black outline-none hover:bg-black/[0.04] focus-visible:bg-lila disabled:cursor-not-allowed lg:pl-5"
+  >
+    <span class="etiqueta-pais sr-only">País del celular del referido {numero}:</span>
+    <img
+      class="bandera h-4 w-6 shrink-0 rounded-[2px] object-cover"
+      src={`/img/flags/${pais.iso}.svg`}
+      alt={pais.name}
+      width="24"
+      height="16"
+    />
+    <span class="indicativo tabular-nums">+{pais.code}</span>
+    <svg class="size-4 shrink-0 text-marcador" viewBox="0 0 16 16" aria-hidden="true">
+      <path
+        d="M4 6l4 4 4-4"
+        fill="none"
+        stroke="currentColor"
+        stroke-width="1.5"
+        stroke-linecap="round"
+        stroke-linejoin="round"></path>
+    </svg>
+  </button>
+</div>

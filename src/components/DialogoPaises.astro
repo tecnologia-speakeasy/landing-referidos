@@ -1,0 +1,207 @@
+---
+/**
+ * Buscador de países para el indicativo del celular. Hay uno solo en la página
+ * y lo abre cualquier SelectorPais: al elegir un país se actualiza el selector
+ * que lo abrió.
+ *
+ * Es un <dialog> modal y no un desplegable porque la tarjeta del formulario
+ * lleva overflow-hidden y lo recortaría; además así Esc, el foco y el fondo
+ * vienen del navegador. La lista va entera en el HTML (sin peticiones) y las
+ * banderas se cargan en diferido, cuando se abre.
+ */
+import { COUNTRIES } from '@/lib/countries';
+import { normalizar } from '@/lib/selector-pais';
+
+// Los mercados principales van arriba, separados del resto.
+const primeroDelResto = COUNTRIES.findIndex((p) => !p.top);
+---
+
+<dialog
+  id="dialogo-paises"
+  aria-labelledby="titulo-paises"
+  class="m-auto w-[calc(100%-32px)] max-w-[420px] overflow-hidden rounded-2xl bg-white p-0 font-inter text-black backdrop:bg-morado-900/75"
+>
+  <div class="flex max-h-[min(640px,calc(100dvh-48px))] flex-col">
+    <div class="flex items-center justify-between gap-4 px-5 pt-5 pb-3">
+      <h2 id="titulo-paises" class="text-[18px] leading-[26px] font-semibold">
+        Indicativo del país
+      </h2>
+      <button
+        type="button"
+        data-cerrar
+        aria-label="Cerrar"
+        class="flex size-9 cursor-pointer items-center justify-center rounded-full text-black/60 hover:bg-lila focus-visible:ring-2 focus-visible:ring-rosa focus-visible:outline-none"
+      >
+        <svg class="size-5" viewBox="0 0 20 20" aria-hidden="true">
+          <path
+            d="M5 5l10 10M15 5L5 15"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="1.75"
+            stroke-linecap="round"></path>
+        </svg>
+      </button>
+    </div>
+
+    <div class="px-5 pb-3">
+      <input
+        id="buscar-pais"
+        type="search"
+        autofocus
+        autocomplete="off"
+        spellcheck="false"
+        placeholder="Busca por país o indicativo"
+        aria-label="Buscar país o indicativo"
+        aria-controls="lista-paises"
+        class="h-12 w-full rounded-xl border border-black/15 px-4 text-[16px] leading-6 outline-none placeholder:text-marcador focus-visible:border-rosa focus-visible:ring-2 focus-visible:ring-rosa/30"
+      />
+    </div>
+
+    <ul id="lista-paises" aria-label="Países" class="min-h-0 flex-1 overflow-y-auto overscroll-contain px-2 pb-2">
+      {
+        COUNTRIES.map((pais, i) => (
+          <>
+            {i === primeroDelResto && (
+              <li class="separador-paises mx-3 my-2 border-t border-black/10" aria-hidden="true" />
+            )}
+            <li>
+              <button
+                type="button"
+                data-iso={pais.iso}
+                data-nombre={normalizar(pais.name)}
+                data-indicativo={pais.code}
+                class="opcion-pais flex w-full cursor-pointer items-center gap-3 rounded-lg px-3 py-2.5 text-left text-[16px] leading-6 hover:bg-lila focus-visible:bg-lila focus-visible:outline-none aria-[current=true]:font-semibold"
+              >
+                <img
+                  src={`/img/flags/${pais.iso}.svg`}
+                  alt=""
+                  width="24"
+                  height="16"
+                  loading="lazy"
+                  class="h-4 w-6 shrink-0 rounded-[2px] object-cover"
+                />
+                <span class="min-w-0 flex-1 truncate">{pais.name}</span>
+                <span class="shrink-0 text-black/60 tabular-nums">+{pais.code}</span>
+              </button>
+            </li>
+          </>
+        ))
+      }
+    </ul>
+
+    <p id="sin-paises" hidden class="px-5 pt-2 pb-8 text-center text-[16px] leading-6 text-black/60">
+      No encontramos ese país.
+    </p>
+  </div>
+</dialog>
+
+<script>
+  import { elegirPais, normalizar, paisDe } from '@/lib/selector-pais';
+  import { paisPorIso } from '@/lib/telefono';
+
+  const dialogo = document.querySelector<HTMLDialogElement>('#dialogo-paises');
+  const buscar = document.querySelector<HTMLInputElement>('#buscar-pais');
+  const lista = document.querySelector<HTMLUListElement>('#lista-paises');
+  const sinPaises = document.querySelector<HTMLParagraphElement>('#sin-paises');
+
+  if (dialogo && buscar && lista && sinPaises) {
+    const opciones = [...lista.querySelectorAll<HTMLButtonElement>('.opcion-pais')];
+    const separador = lista.querySelector<HTMLLIElement>('.separador-paises');
+
+    /** El selector que abrió el diálogo: a ese se le pone el país elegido. */
+    let selectorActivo: Element | null = null;
+
+    const visibles = () => opciones.filter((opcion) => !opcion.parentElement?.hidden);
+
+    // Con dígitos ("57", "+57") busca por indicativo; con letras, por nombre.
+    const filtrar = () => {
+      const consulta = normalizar(buscar.value.trim());
+      const indicativo = /^\+?\d+$/.test(consulta) ? consulta.replace('+', '') : null;
+
+      for (const opcion of opciones) {
+        const coincide =
+          consulta === '' ||
+          (indicativo !== null
+            ? (opcion.dataset.indicativo ?? '').startsWith(indicativo)
+            : (opcion.dataset.nombre ?? '').includes(consulta));
+        if (opcion.parentElement) opcion.parentElement.hidden = !coincide;
+      }
+
+      if (separador) separador.hidden = consulta !== '';
+      sinPaises.hidden = visibles().length > 0;
+    };
+
+    const abrir = (selector: Element) => {
+      selectorActivo = selector;
+      const actual = paisDe(selector).iso;
+
+      buscar.value = '';
+      filtrar();
+      for (const opcion of opciones) {
+        if (opcion.dataset.iso === actual) opcion.setAttribute('aria-current', 'true');
+        else opcion.removeAttribute('aria-current');
+      }
+
+      dialogo.showModal();
+      opciones.find((opcion) => opcion.dataset.iso === actual)?.scrollIntoView({ block: 'center' });
+    };
+
+    // Al elegir se pasa directo al número de esa fila, que es lo siguiente por llenar.
+    const elegir = (opcion: HTMLButtonElement) => {
+      const pais = paisPorIso(opcion.dataset.iso ?? '');
+      const selector = selectorActivo;
+      dialogo.close();
+      if (!pais || !selector) return;
+
+      elegirPais(selector, pais);
+      selector.parentElement?.querySelector<HTMLInputElement>('input[name="telefono"]')?.focus();
+    };
+
+    // Delegado en el documento: las filas que se agregan después también lo abren.
+    document.addEventListener('click', (evento) => {
+      const boton = (evento.target as Element).closest('.boton-pais');
+      const selector = boton?.closest('.selector-pais');
+      if (selector) abrir(selector);
+    });
+
+    lista.addEventListener('click', (evento) => {
+      const opcion = (evento.target as Element).closest<HTMLButtonElement>('.opcion-pais');
+      if (opcion) elegir(opcion);
+    });
+
+    buscar.addEventListener('input', filtrar);
+
+    buscar.addEventListener('keydown', (evento) => {
+      if (evento.key === 'Enter') {
+        evento.preventDefault();
+        const primera = visibles()[0];
+        if (primera) elegir(primera);
+      } else if (evento.key === 'ArrowDown') {
+        evento.preventDefault();
+        visibles()[0]?.focus();
+      } else if (evento.key === 'Escape') {
+        // Un campo de búsqueda usa el primer Esc para borrarse; aquí se cierra de una vez.
+        evento.preventDefault();
+        dialogo.close();
+      }
+    });
+
+    // Flechas para recorrer la lista; desde la primera, hacia arriba vuelve al buscador.
+    lista.addEventListener('keydown', (evento) => {
+      if (evento.key !== 'ArrowDown' && evento.key !== 'ArrowUp') return;
+      evento.preventDefault();
+
+      const todas = visibles();
+      const i = todas.indexOf(document.activeElement as HTMLButtonElement);
+      const destino = evento.key === 'ArrowDown' ? todas[i + 1] : i <= 0 ? buscar : todas[i - 1];
+      destino?.focus();
+    });
+
+    dialogo.querySelector('[data-cerrar]')?.addEventListener('click', () => dialogo.close());
+
+    // Un clic en el fondo (fuera de la caja) también cierra.
+    dialogo.addEventListener('click', (evento) => {
+      if (evento.target === dialogo) dialogo.close();
+    });
+  }
+</script>

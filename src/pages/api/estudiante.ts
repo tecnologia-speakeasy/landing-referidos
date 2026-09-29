@@ -1,4 +1,5 @@
 import type { APIRoute } from 'astro';
+import { MENSAJE_CORREO_INVALIDO, correoValido } from '@/lib/correo';
 import { consultar } from '@/lib/db';
 import { json } from '@/lib/http';
 import { crearSesion } from '@/lib/session';
@@ -9,10 +10,11 @@ export const prerender = false;
  * Registra al estudiante que va a referir con el nombre y el correo del
  * formulario de entrada, y lo recuerda con una cookie firmada.
  *
- * No se valida el formato de nada: solo se recortan espacios y el correo se
- * pasa a minúsculas para que la misma persona no quede duplicada por escribirlo
- * distinto. Si el correo ya existe se actualiza el nombre y se reutiliza el
- * registro, así sus referidos siguen colgando del mismo estudiante.
+ * Se recortan espacios, se exige que el correo tenga forma de correo (ver
+ * `@/lib/correo`) y se pasa a minúsculas para que la misma persona no quede
+ * duplicada por escribirlo distinto. Si el correo ya existe se actualiza el
+ * nombre y se reutiliza el registro, así sus referidos siguen colgando del
+ * mismo estudiante.
  *
  * Envoltorio: cualquier error inesperado (configuración inválida, caída de red)
  * se registra en el servidor y se responde en JSON, nunca con una página de error.
@@ -44,6 +46,10 @@ const manejarPost: APIRoute = async ({ request, cookies }) => {
   // Sin nombre o sin correo no hay a quién asociarle los referidos.
   if (nombre === '' || email === '') {
     return json({ ok: false, error: 'Escribe tu nombre y tu correo para continuar.' }, 400);
+  }
+
+  if (!correoValido(email)) {
+    return json({ ok: false, error: MENSAJE_CORREO_INVALIDO }, 400);
   }
 
   const { rows } = await consultar<{ id: number }>(

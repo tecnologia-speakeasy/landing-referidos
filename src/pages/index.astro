@@ -1,13 +1,17 @@
 ---
 import Layout from '../layouts/Layout.astro';
 import { fondoFormularioDesktop, fondoFormularioMovil, urlCss } from '@/lib/originales';
-import { leerSesion } from '@/lib/session';
+import { MAXIMO_CARACTERES_CORREO } from '@/lib/correo';
+import { NOMBRE_COOKIE, cerrarSesion } from '@/lib/session';
 
 export const prerender = false;
 
-// Si ya dejó sus datos, no tiene sentido pedírselos otra vez.
-if (await leerSesion(Astro.cookies)) {
-  return Astro.redirect('/referidos');
+// Siempre se piden los datos, aunque ya se hayan dado antes: la sesión vale
+// para una sola carga de /referidos (ver `tomarSesion`). Si quedó una cookie
+// sin usar, se borra para que el siguiente que abra la página no herede la
+// sesión de otro.
+if (Astro.cookies.has(NOMBRE_COOKIE)) {
+  cerrarSesion(Astro.cookies);
 }
 
 const claseEtiqueta = 'w-full text-[18px] leading-normal text-white';
@@ -15,7 +19,7 @@ const claseCampo =
   'h-12 w-full rounded-xl bg-white px-4 text-[16px] leading-normal text-black outline-none ' +
   'placeholder:text-black/[0.31] focus-visible:ring-2 focus-visible:ring-rosa ' +
   'focus-visible:ring-offset-2 focus-visible:ring-offset-morado-900 ' +
-  'disabled:opacity-70 sm:px-[18px]';
+  'disabled:opacity-70 aria-[invalid=true]:ring-2 aria-[invalid=true]:ring-rosa sm:px-[18px]';
 ---
 
 <Layout
@@ -39,7 +43,8 @@ const claseCampo =
         </h1>
       </header>
 
-      <!-- Sin validación de formato a propósito: solo se pide que no vayan vacíos. -->
+      <!-- El formato del correo se revisa en el script (y otra vez en la API);
+           `type="text"` para que el navegador no muestre su propio aviso. -->
       <form id="form-entrada" class="flex flex-col gap-6 sm:gap-8">
         <div class="flex flex-col gap-4">
           <label for="nombre" class={claseEtiqueta}>Nombre</label>
@@ -64,7 +69,7 @@ const claseCampo =
             autocomplete="email"
             autocapitalize="off"
             spellcheck="false"
-            maxlength="254"
+            maxlength={MAXIMO_CARACTERES_CORREO}
             required
             placeholder="Ej. maria.garcia@email.com"
             aria-describedby="mensaje-error"
@@ -102,6 +107,8 @@ const claseCampo =
 </Layout>
 
 <script>
+  import { MENSAJE_CORREO_INVALIDO, correoValido } from '@/lib/correo';
+
   const form = document.querySelector<HTMLFormElement>('#form-entrada');
   const nombre = document.querySelector<HTMLInputElement>('#nombre');
   const email = document.querySelector<HTMLInputElement>('#email');
@@ -125,12 +132,23 @@ const claseCampo =
     };
 
     for (const entrada of [nombre, email]) {
-      entrada.addEventListener('input', () => mostrarError(''));
+      entrada.addEventListener('input', () => {
+        mostrarError('');
+        entrada.removeAttribute('aria-invalid');
+      });
     }
 
     form.addEventListener('submit', async (evento) => {
       evento.preventDefault();
       mostrarError('');
+
+      if (!correoValido(email.value.trim())) {
+        email.setAttribute('aria-invalid', 'true');
+        email.focus();
+        mostrarError(MENSAJE_CORREO_INVALIDO);
+        return;
+      }
+
       cargando(true);
 
       try {

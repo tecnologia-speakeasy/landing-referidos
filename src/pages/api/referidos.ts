@@ -1,25 +1,28 @@
 import type { APIRoute } from 'astro';
-import { obtenerPool } from '@/lib/db';
+import type { Country } from '@/lib/countries';
+import { consultar } from '@/lib/db';
 import { json } from '@/lib/http';
-import { MAXIMO_REFERIDOS } from '@/lib/referidos';
-import { cerrarSesion, leerSesion } from '@/lib/session';
+import { MAXIMO_POR_ENVIO } from '@/lib/referidos';
+import { leerSesion } from '@/lib/session';
+import { componerE164, paisPorIso, problemaTelefono } from '@/lib/telefono';
 
 export const prerender = false;
 
 interface Referido {
   nombre: string;
+  pais: Country | undefined;
   telefono: string;
 }
 
 /**
  * Guarda las personas que refiere el estudiante de la sesión.
  *
- * - Las filas que llegan vacías del todo se ignoran: el formulario siempre
- *   manda sus cinco filas, y lo normal es que no se llenen todas.
- * - Cada estudiante puede referir como mucho MAXIMO_REFERIDOS personas en
- *   total, sumando envíos anteriores. El conteo y la inserción van en la misma
- *   transacción, con el estudiante bloqueado, para que dos envíos simultáneos
- *   no se salten el tope.
+ * - Las filas que llegan vacías del todo se ignoran: el formulario manda todas
+ *   sus filas, y lo normal es que no se llenen todas.
+ * - No hay tope de referidos por estudiante; solo se limita cuántas filas
+ *   llegan en un envío (MAXIMO_POR_ENVIO).
+ * - Cada celular llega sin indicativo, con el país aparte; se valida con las
+ *   reglas de ese país y se guarda en formato E.164 (ver `@/lib/telefono`).
  */
 export const POST: APIRoute = async (contexto) => {
   try {
@@ -39,8 +42,8 @@ const SIN_SESION = {
   redirect: '/',
 };
 
-const manejarPost: APIRoute = async ({ request, cookies }) => {
-  const sesion = await leerSesion(cookies);
+const manejarPost: APIRoute = async ({ request }) => {
+  const sesion = await leerSesion(request);
   if (!sesion) return json(SIN_SESION, 401);
 
   let cuerpo: unknown;
@@ -55,11 +58,19 @@ const manejarPost: APIRoute = async ({ request, cookies }) => {
     return json({ ok: false, error: 'Petición inválida.' }, 400);
   }
 
+  if (lista.length > MAXIMO_POR_ENVIO) {
+    return json(
+      { ok: false, error: `Puedes enviar hasta ${MAXIMO_POR_ENVIO} personas a la vez.` },
+      400,
+    );
+  }
+
   const referidos: Referido[] = lista
     .map((fila) => {
-      const datos = fila as { nombre?: unknown; telefono?: unknown } | null;
+      const datos = fila as { nombre?: unknown; pais?: unknown; telefono?: unknown } | null;
       return {
         nombre: String(datos?.nombre ?? '').trim().replace(/\s+/g, ' '),
+        pais: paisPorIso(String(datos?.pais ?? '')),
         telefono: String(datos?.telefono ?? '').trim(),
       };
     })
@@ -76,68 +87,34 @@ const manejarPost: APIRoute = async ({ request, cookies }) => {
     return json({ ok: false, error: 'Completa el nombre y el celular de cada referido.' }, 400);
   }
 
-  const cliente = await obtenerPool().connect();
-  try {
-    await cliente.query('BEGIN');
-
-    const estudiante = await cliente.query(
-      'SELECT id FROM estudiantes WHERE id = $1 FOR UPDATE',
-      [sesion.estudianteId],
-    );
-
-    // La cookie apunta a un estudiante que ya no existe (se borró a mano).
-    if (estudiante.rowCount === 0) {
-      await cliente.query('ROLLBACK');
-      cerrarSesion(cookies);
-      return json(SIN_SESION, 401);
+  const valores: string[] = [];
+  for (const r of referidos) {
+    if (!r.pais) {
+      return json({ ok: false, error: `Elige el país del celular de ${r.nombre}.` }, 400);
     }
-
-    const { rows } = await cliente.query<{ total: number }>(
-      'SELECT COUNT(*)::int AS total FROM persona_referida WHERE estudiante_id = $1',
-      [sesion.estudianteId],
-    );
-    const yaReferidos = rows[0]?.total ?? 0;
-    const disponibles = MAXIMO_REFERIDOS - yaReferidos;
-
-    if (referidos.length > disponibles) {
-      await cliente.query('ROLLBACK');
-      return json(
-        {
-          ok: false,
-          error:
-            disponibles <= 0
-              ? `Ya registraste a tus ${MAXIMO_REFERIDOS} referidos.`
-              : `Solo puedes añadir ${disponibles} ${disponibles === 1 ? 'referido' : 'referidos'} más.`,
-        },
-        409,
-      );
+    const problema = problemaTelefono(r.pais, r.telefono);
+    if (problema) {
+      return json({ ok: false, error: `El celular de ${r.nombre} ${problema}.` }, 400);
     }
-
-    const valores: string[] = [];
-    const marcadores = referidos.map((r, i) => {
-      valores.push(r.nombre, r.telefono);
-      return `($1, $${i * 2 + 2}, $${i * 2 + 3})`;
-    });
-
-    await cliente.query(
-      `INSERT INTO persona_referida (estudiante_id, nombre, telefono)
-       VALUES ${marcadores.join(', ')}`,
-      [sesion.estudianteId, ...valores],
-    );
-
-    await cliente.query('COMMIT');
-
-    return json({
-      ok: true,
-      registrados: referidos.length,
-      restantes: disponibles - referidos.length,
-    });
-  } catch (error) {
-    await cliente.query('ROLLBACK').catch(() => {});
-    throw error;
-  } finally {
-    cliente.release();
+    valores.push(r.nombre, componerE164(r.pais, r.telefono));
   }
+
+  const marcadores = referidos.map((_, i) => `($${i * 2 + 2}::text, $${i * 2 + 3}::text)`);
+
+  // Una sola sentencia: si el estudiante ya no existe (se borró a mano), el
+  // SELECT no da filas y no se inserta nada.
+  const { rowCount } = await consultar(
+    `INSERT INTO persona_referida (estudiante_id, nombre, telefono)
+     SELECT e.id, v.nombre, v.telefono
+     FROM estudiantes e
+     CROSS JOIN (VALUES ${marcadores.join(', ')}) AS v (nombre, telefono)
+     WHERE e.id = $1`,
+    [sesion.estudianteId, ...valores],
+  );
+
+  if (rowCount === 0) return json(SIN_SESION, 401);
+
+  return json({ ok: true, registrados: referidos.length });
 };
 
 /** Cualquier método distinto de POST. */
