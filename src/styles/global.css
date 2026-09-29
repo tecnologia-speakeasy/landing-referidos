@@ -70,12 +70,16 @@
  * ===========================================================================*/
 
 /*
+ * Las imágenes de fondo llegan en variables CSS (`--fondo-movil`,
+ * `--fondo-desktop`) que pone la página con la URL de los originales de
+ * design/originales (ver src/lib/originales.ts).
+ *
  * El color plano de debajo es el mismo morado del original, así que si la
  * imagen todavía no ha cargado no se ve ningún destello blanco.
  */
 .pagina-formulario {
   background-color: #170b2b;
-  background-image: url('/img/fondo-formulario-movil.webp');
+  background-image: var(--fondo-movil);
   background-position: center;
   background-size: cover;
   background-repeat: no-repeat;
@@ -84,7 +88,7 @@
 
 @media (min-width: 640px) {
   .pagina-formulario {
-    background-image: url('/img/fondo-formulario-desktop.webp');
+    background-image: var(--fondo-desktop);
   }
 }
 
@@ -222,14 +226,24 @@ html {
 /*
  * Bloque superior (hero + frase de confianza). El fondo es el export de diseño
  * sin la foto: trama, halos morados y el oscurecido de abajo ya van dentro.
+ * Como en el formulario de entrada, la imagen llega en una variable CSS con la
+ * URL del original.
  */
 .bloque-superior {
-  background: #170b2b url('/img/fondo-hero.webp') center top / cover no-repeat;
+  background-color: #170b2b;
+  background-image: var(--fondo);
+  background-position: center top;
+  background-size: cover;
+  background-repeat: no-repeat;
 }
 
 /* Bloque inferior (formulario + cierre): trama con el halo morado abajo. */
 .bloque-inferior {
-  background: #170b2b url('/img/fondo-referidos.webp') center bottom / cover no-repeat;
+  background-color: #170b2b;
+  background-image: var(--fondo);
+  background-position: center bottom;
+  background-size: cover;
+  background-repeat: no-repeat;
 }
 
 /*
@@ -258,9 +272,9 @@ html {
 /*
  * Foto de Felipe. El archivo trae el halo alrededor, así que la imagen es mucho
  * más grande que la persona y se coloca a mano para que la persona caiga donde
- * la pone el diseño. Las cifras salen de medir el diseño contra el archivo:
- * en `felipe.webp` (1365x997) la persona empieza en la fila 472 y el corte de
- * la foto está en la última fila.
+ * la pone el diseño. Las cifras salen de medir el diseño contra el original
+ * (1365x1365): la persona empieza en la fila 472 y el corte de la foto está en
+ * la fila 996; lo que queda debajo es solo halo y nunca se ve.
  *
  * Móvil (escala 0,838, 1144px): la cabeza queda 6px por debajo del inicio del
  * hueco de la foto y el fundido la funde con el morado antes de la frase.
@@ -296,14 +310,15 @@ html {
 
 /*
  * Desktop (escala 1,338, 1826px): la cabeza queda 634px por encima del final de
- * la sección y la foto sobresale 68px por debajo, que recorta la propia
- * sección. La máscara oscurece la parte baja como el fundido "multiply" del
- * diseño, pero solo sobre la foto: el fondo ya trae su propio oscurecido.
+ * la sección y la imagen sobresale 560px por debajo (el corte de la foto, 68px;
+ * el resto es halo), que recorta la propia sección. La máscara oscurece la
+ * parte baja como el fundido "multiply" del diseño, pero solo sobre la foto: el
+ * fondo ya trae su propio oscurecido.
  */
 @media (min-width: 1024px) {
   .foto-felipe {
     top: auto;
-    bottom: -68px;
+    bottom: -560px;
     width: 1826px;
     -webkit-mask-image: linear-gradient(to bottom, #000 966px, rgba(0, 0, 0, 0.3) 1228px);
     mask-image: linear-gradient(to bottom, #000 966px, rgba(0, 0, 0, 0.3) 1228px);

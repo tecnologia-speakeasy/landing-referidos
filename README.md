@@ -71,10 +71,18 @@ npm install --no-save --force @astrojs/compiler-binding-wasm32-wasi@<versión de
 
 ## Imágenes
 
-Los originales de diseño están en `design/originales/` y **no** se despliegan.
-`npm run optimizar-imagenes` genera a partir de ellos los WebP de `public/img/`
-(van versionados). Solo hay que correrlo cuando diseño entregue un original
-nuevo. Los iconos de las tarjetas (`public/img/iconos/`) se sirven tal cual.
+La página usa los **originales de diseño tal cual**, desde `design/originales/`
+(fondos, foto de Felipe y fondos del formulario de entrada). Se cargan en
+`src/lib/originales.ts` y Vite los copia sin tocarlos al build, con un nombre
+público limpio (sin espacios ni acentos, ver `astro.config.mjs`). Para cambiar
+una imagen basta con reemplazar el archivo en `design/originales/` manteniendo
+su nombre.
+
+Los iconos de las tarjetas (`public/img/iconos/`) también son los originales y
+se sirven tal cual.
+
+`public/img/*.webp` y `npm run optimizar-imagenes` son versiones comprimidas de
+esos mismos originales; hoy la página no las usa.
 
 La foto de Felipe trae el halo incluido, así que es mucho más grande que la
 persona: su tamaño y posición en cada breakpoint están calculados en
@@ -91,6 +99,7 @@ src/lib/env.ts                    Validación de variables de entorno (zod)
 src/lib/db.ts                     Pool de PostgreSQL (singleton)
 src/lib/session.ts                Cookie firmada con el id del estudiante
 src/lib/referidos.ts              Tope de referidos y conteo por estudiante
+src/lib/originales.ts             Imágenes originales de design/originales
 src/layouts/Layout.astro          <head> común: favicon, precarga de fuente
 src/styles/global.css             Fuentes, tokens del diseño, fondos y tarjetas
 src/components/TarjetaBeneficio.astro   Tarjeta de "¿Cómo funciona este regalo?"

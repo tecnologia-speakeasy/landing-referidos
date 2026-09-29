@@ -1,6 +1,7 @@
 ---
 import TarjetaBeneficio from '../components/TarjetaBeneficio.astro';
 import Layout from '../layouts/Layout.astro';
+import { fondoHero, fondoReferidos, fotoFelipe, urlCss } from '@/lib/originales';
 import { MAXIMO_REFERIDOS, contarReferidos } from '@/lib/referidos';
 import { leerSesion } from '@/lib/session';
 
@@ -57,11 +58,15 @@ const claseBoton =
   fuente="inter"
   clase="bg-morado-900 font-inter text-white"
 >
-  <link slot="head" rel="preload" as="image" href="/img/felipe.webp" fetchpriority="high" />
+  <link slot="head" rel="preload" as="image" href={fotoFelipe.src} fetchpriority="high" />
 
   <main>
     <!-- 01 Hero + 02 Confianza -->
-    <section aria-labelledby="titulo-hero" class="bloque-superior relative isolate overflow-hidden">
+    <section
+      aria-labelledby="titulo-hero"
+      class="bloque-superior relative isolate overflow-hidden"
+      style={`--fondo: ${urlCss(fondoHero)}`}
+    >
       <div class="rejilla-hero mx-auto w-full max-w-[608px] px-6 lg:max-w-[1248px]">
         <div class="relative z-10 pt-12 [grid-area:mensaje] lg:flex lg:min-h-[600px] lg:flex-col lg:justify-center lg:pt-[120px]">
           <div class="flex flex-col gap-5 text-center lg:gap-6 lg:text-left">
@@ -90,10 +95,10 @@ const claseBoton =
 
         <div class="relative mt-[45px] h-[299px] [grid-area:foto] lg:mt-0 lg:h-auto">
           <img
-            src="/img/felipe.webp"
+            src={fotoFelipe.src}
             alt="Felipe, de Speak Easy, con las manos extendidas"
-            width="1365"
-            height="997"
+            width={fotoFelipe.width}
+            height={fotoFelipe.height}
             fetchpriority="high"
             class="foto-felipe"
           />
@@ -148,7 +153,7 @@ const claseBoton =
       </div>
     </section>
 
-    <div class="bloque-inferior">
+    <div class="bloque-inferior" style={`--fondo: ${urlCss(fondoReferidos)}`}>
       <!-- 04 Referidos -->
       <section id="referidos" aria-labelledby="titulo-referidos" class="scroll-mt-4 px-6 py-12 lg:py-24">
         <div class="mx-auto flex w-full max-w-[560px] flex-col items-center gap-6 lg:max-w-[1200px] lg:gap-10">

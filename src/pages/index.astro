@@ -1,5 +1,6 @@
 ---
 import Layout from '../layouts/Layout.astro';
+import { fondoFormularioDesktop, fondoFormularioMovil, urlCss } from '@/lib/originales';
 import { leerSesion } from '@/lib/session';
 
 export const prerender = false;
@@ -22,6 +23,7 @@ const claseCampo =
   descripcion="Ingresa tus datos para referir a tus amigos y familiares en Speak Easy."
   fuente="dm-sans"
   clase="pagina-formulario font-dm"
+  estilo={`--fondo-movil: ${urlCss(fondoFormularioMovil)}; --fondo-desktop: ${urlCss(fondoFormularioDesktop)}`}
 >
   <!-- `my-auto` en la tarjeta en vez de `items-center`: si la pantalla es más
        baja que el formulario, así se puede desplazar hacia arriba. -->
@@ -32,12 +34,9 @@ const claseCampo =
       <header class="flex flex-col gap-4 text-center sm:gap-5">
         <p class="text-[20px] leading-normal text-white">¡Bienvenidos!</p>
 
-        <div class="flex flex-col gap-0">
-          <h1 class="text-[45px] leading-normal font-extrabold tracking-[-0.9px] text-rosa">
-            Speak Easy
-          </h1>
-          <p class="text-[20px] leading-normal text-white">Ingresa tus datos para comenzar</p>
-        </div>
+        <h1 class="text-[45px] leading-normal font-extrabold tracking-[-0.9px] text-rosa">
+          Speak Easy
+        </h1>
       </header>
 
       <!-- Sin validación de formato a propósito: solo se pide que no vayan vacíos. -->

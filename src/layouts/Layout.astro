@@ -8,6 +8,8 @@ interface Props {
   fuente: 'dm-sans' | 'inter';
   /** Clases del <body>: fondo y tipografía de cada página. */
   clase: string;
+  /** Estilo en línea del <body>, p. ej. las variables CSS con las imágenes de fondo. */
+  estilo?: string;
   /** Color de la barra del navegador en móvil. */
   colorTema?: string;
 }
@@ -17,6 +19,7 @@ const {
   descripcion = 'Refiere a tus amigos y familiares para que aprendan inglés con Speak Easy.',
   fuente,
   clase,
+  estilo,
   colorTema = '#170b2b',
 } = Astro.props;
 
@@ -43,7 +46,7 @@ const fuentePrincipal =
 
     <title>{titulo}</title>
   </head>
-  <body class:list={['min-h-dvh antialiased', clase]}>
+  <body class:list={['min-h-dvh antialiased', clase]} style={estilo}>
     <slot />
   </body>
 </html>
